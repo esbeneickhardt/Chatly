@@ -37,7 +37,7 @@ fn cache_control(path: &str) -> HeaderValue {
 }
 
 pub fn router() -> Router {
-    Router::new().route("/", get(index)).route("/*path", get(asset))
+    Router::new().route("/", get(index)).route("/{*path}", get(asset))
 }
 
 async fn index() -> Response {

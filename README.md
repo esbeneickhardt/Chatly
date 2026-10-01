@@ -41,7 +41,7 @@ Not included: end-to-end encryption, federation, clustering. See
 
 ## Quick start (development)
 
-Requires Rust (stable, via [rustup](https://rustup.rs)) and Node 18+.
+Requires Rust (stable, via [rustup](https://rustup.rs)) and Node 22.12+.
 
 ```sh
 just web    # build the client into web/dist

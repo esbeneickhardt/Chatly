@@ -96,7 +96,7 @@ async fn send_frame(
     t: Option<&str>,
 ) -> Result<(), axum::Error> {
     let frame = serde_json::json!({ "op": op, "d": d, "s": s, "t": t });
-    socket.send(WsMessage::Text(frame.to_string())).await
+    socket.send(WsMessage::Text(frame.to_string().into())).await
 }
 
 fn frame_op(text: &str) -> Option<u8> {
@@ -115,7 +115,7 @@ async fn handle_socket(mut socket: WebSocket, state: SharedState, user: User) {
         _ = tokio::time::sleep(IDENTIFY_TIMEOUT) => false,
     };
     if !identified {
-        let _ = socket.close().await;
+        let _ = futures_util::SinkExt::close(&mut socket).await;
         return;
     }
 

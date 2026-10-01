@@ -55,7 +55,6 @@ impl CurrentUser {
 
 const BOT_AUTH_PREFIX: &str = "Bot ";
 
-#[async_trait::async_trait]
 impl FromRequestParts<SharedState> for CurrentUser {
     type Rejection = AppError;
 

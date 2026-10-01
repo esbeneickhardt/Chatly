@@ -69,6 +69,9 @@ finer-grained, per-request history of the UI work lives in
   (Playwright), and CI covering format, lint, tests, and a scanned image.
 
 ### Changed
+- **Dependencies updated**: axum 0.8, tower-http 0.7, toml 1, infer 0.22, base64 0.23;
+  web tooling on eslint 10, vitest 5 and jsdom 30. Building the web client now needs
+  **Node 22.12+** (CI and the Docker build use Node 24).
 - **Renamed to Chatly** (binary, image, compose project, UI and docs). Browser
   settings and the live address are kept.
 - **The TURN secret moved to `docker/.env`** (git-ignored) instead of the compose file.
