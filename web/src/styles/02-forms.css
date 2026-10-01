@@ -1,0 +1,200 @@
+/* Form fields, buttons, errors, toggles. Part 2 of the stylesheet — imported in order from main.ts; the order is the cascade. */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 1.1rem;
+}
+
+/* Labels/inputs are meant to stretch full-width in a .field (the
+   default flex-column stretch), but a button dropped in one — e.g. a
+   "Save" button under a text input — shouldn't balloon to match. */
+.field button {
+  align-self: flex-start;
+}
+
+/* An editable profile field's input + Save button side by side,
+   rather than the .field default of stacking every child full-width
+   in a column — matches how a single-line "name, then a save action"
+   row reads more naturally than a button on its own line below. */
+.editable-field-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.editable-field-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.editable-field-row button {
+  flex-shrink: 0;
+}
+
+.field label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* Every password field in Settings (`passwordBox()`) — the input
+   plus its eye toggle, overlaid in the input's own padding rather
+   than sitting beside it as a separate button, matching how every
+   other app does a "show password" control. */
+.password-input-row {
+  position: relative;
+  display: flex;
+}
+
+.password-input-row input {
+  width: 100%;
+  padding-right: 2.5rem;
+}
+
+.password-input-row .password-toggle {
+  position: absolute;
+  right: 0.2rem;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* A leading icon overlaid on an input's own left padding — the
+   "Search for friends" box in the Invite to Voice panel, and anywhere
+   else a search field wants the same treatment. */
+.icon-input-row {
+  position: relative;
+  display: flex;
+  margin: 0.75rem 0;
+}
+
+.icon-input-row input {
+  width: 100%;
+  padding-left: 2.4rem;
+}
+
+.icon-input-row .icon {
+  position: absolute;
+  left: 0.8rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.invite-voice-subheading {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.auth-card form > button[type="submit"] {
+  width: 100%;
+  padding: 0.8rem;
+  margin-top: 0.25rem;
+  font-size: 0.95rem;
+}
+
+.error-text {
+  color: var(--danger);
+  font-size: 0.85rem;
+  margin: 0 0 1rem;
+  background: rgba(242, 73, 87, 0.1);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.75rem;
+}
+
+.error-text:empty,
+.error-text[hidden] {
+  display: none;
+}
+
+.muted-text {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.link-button {
+  background: none;
+  color: var(--accent-text);
+  padding: 0;
+  font-weight: 600;
+}
+
+.link-button:hover {
+  background: none;
+  text-decoration: underline;
+}
+
+.auth-footer {
+  margin-top: 1.5rem;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.recovery-codes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  padding: 1rem;
+  margin: 1rem 0;
+}
+
+/* Chat shell */
+
+.app-shell {
+  display: flex;
+  height: 100%;
+}
+
+/* Toggled by `toggleSidebarBtn` (channel header) — hides the guild
+   rail and channel/DM list entirely, the same "reclaim width for the
+   main column" idea `chat-hidden` already gives the video panel, just
+   for the other side. `.main-column`'s own `flex: 1` picks up the
+   freed space automatically once these are gone, same as it already
+   does whenever the video panel is smaller/absent. */
+.app-shell.sidebar-collapsed .guild-rail,
+.app-shell.sidebar-collapsed .sidebar,
+.app-shell.sidebar-collapsed .sidebar-resize-handle {
+  display: none;
+}
+
+.guild-rail {
+  width: 76px;
+  flex-shrink: 0;
+  background: var(--bg-rail);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  /* 6.4px so the first divider's top edge lands exactly at 64px —
+     the same height as .sidebar-header/.channel-header — instead of
+     drifting a couple pixels below their bottom border. */
+  padding: 6.4px 0 0.85rem;
+  overflow-y: auto;
+}
+
+.guild-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  background: var(--bg-elevated);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.05rem;
+  cursor: pointer;
+  position: relative;
+  transition:
+    border-radius 0.15s ease,
+    background-color 0.15s ease;
+  flex-shrink: 0;
+}

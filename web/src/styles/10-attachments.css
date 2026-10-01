@@ -1,0 +1,261 @@
+/* Attachments, friends, upload chips. Part 10 of the stylesheet — imported in order from main.ts; the order is the cascade. */
+
+.attachment-image {
+  max-width: min(320px, 100%);
+  max-height: 320px;
+  border-radius: var(--radius-sm);
+  display: block;
+  cursor: pointer;
+}
+
+.attachment-video {
+  /* Was a bare `max-width: 420px` with no `100%` counterpart — a real
+     video's natural size lets it actually reach that width, which is
+     already wider than a phone's available message-list content area
+     (well under 420px on every phone screen once the list's own
+     padding is subtracted), forcing the whole row — and with it,
+     the rest of the chat sharing that scroll container — sideways.
+     `min()` guarantees it can never exceed whichever is smaller. */
+  max-width: min(420px, 100%);
+  max-height: 320px;
+  border-radius: var(--radius-sm);
+  display: block;
+  background: black;
+}
+
+.attachment-audio {
+  display: block;
+  width: 320px;
+  max-width: 100%;
+}
+
+.attachment-file {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.75rem;
+  color: var(--text);
+  text-decoration: none;
+  font-size: 0.85rem;
+}
+
+.attachment-file:hover {
+  background: var(--border);
+}
+
+.reactions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.3rem;
+  align-items: center;
+}
+
+.reaction-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.reaction-pill:hover {
+  border-color: var(--accent);
+}
+
+.reaction-pill.mine {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-sm);
+  padding: 0.3rem 0.6rem;
+  font-size: 0.8rem;
+  margin: 0 0 0.4rem;
+}
+
+.attachment-chip span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.attachment-chip button {
+  padding: 0 0.3rem;
+  background: none;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+}
+
+.attachment-chip-uploading {
+  min-width: 10rem;
+}
+
+.attachment-chip-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 10rem;
+}
+
+.attachment-progress-bar {
+  width: 4rem;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--bg);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.attachment-progress-bar-fill {
+  height: 100%;
+  width: 0;
+  background: var(--accent-fill);
+  transition: width 0.1s ease;
+}
+
+.attachment-chip-percent {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  width: 2rem;
+}
+
+.attachment-chip-error {
+  color: var(--danger);
+}
+
+.attachment-chip-error-text {
+  font-size: 0.75rem;
+}
+
+.secret-code {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  background: var(--bg);
+  padding: 0.6rem 0.7rem;
+  border-radius: var(--radius-sm);
+  word-break: break-all;
+  margin: 0.5rem 0;
+  font-size: 0.85rem;
+}
+
+.system-status-btn span {
+  font-variant-numeric: tabular-nums;
+}
+
+.system-status-popover {
+  position: fixed;
+  z-index: 20;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.7rem 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  box-shadow: 0 12px 32px -12px rgba(0, 0, 0, 0.6);
+  min-width: 220px;
+}
+
+.system-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.82rem;
+}
+
+.system-status-row .name {
+  color: var(--text-muted);
+}
+
+.system-status-row .value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.system-status-note {
+  margin: 0.2rem 0 0;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.friend-identity {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.friend-identity .avatar {
+  width: 28px;
+  height: 28px;
+  font-size: 0.75rem;
+}
+
+.message-more-menu {
+  position: fixed;
+  z-index: 20;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  box-shadow: 0 12px 32px -12px rgba(0, 0, 0, 0.6);
+  min-width: 170px;
+}
+
+.message-more-option {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.6rem;
+  width: 100%;
+  background: none;
+  color: var(--text);
+  text-align: left;
+  padding: 0.45rem 0.6rem;
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+  font-size: 0.85rem;
+}
+
+.message-more-option:hover {
+  background: var(--border);
+}
+
+.message-more-option.danger {
+  /* `.danger` alone also matches the app-wide `button.danger` rule
+     (solid red background, for standalone CTA buttons like "Log out
+     everywhere") — without this override that wins by default since
+     nothing else here sets a background, leaving red text on a red
+     background. */
+  background: none;
+  color: var(--danger);
+}
+
+.message-more-option.danger:hover {
+  background: var(--danger-fill);
+  color: white;
+}
+
+.message-more-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 0.3rem 0.2rem;
+}

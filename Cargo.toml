@@ -1,0 +1,23 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/protocol",
+    "crates/server",
+    "crates/totp",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+
+# Tuned for speed rather than binary size (this used to be `opt-level = "z"`).
+# Measured with the load test in `crates/server/src/load_tests.rs`, alternating
+# builds on the same host: opt-level 3 sustained ~9% more requests per second
+# than "z" (median 349 vs 319 req/s) for a few extra megabytes in the image.
+# See docs/performance.md.
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true

@@ -1,0 +1,429 @@
+/* Server rail, sidebar, channel and conversation lists, voice participants. Part 3 of the stylesheet — imported in order from main.ts; the order is the cascade. */
+
+.guild-icon:hover {
+  border-radius: 14px;
+  background: var(--accent-fill);
+}
+
+.guild-icon.active {
+  border-radius: 14px;
+  background: var(--accent-fill);
+}
+
+.guild-icon.active::before {
+  content: "";
+  position: absolute;
+  left: -14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 24px;
+  border-radius: 0 4px 4px 0;
+  background: white;
+}
+
+.guild-icon-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
+
+.guild-icon.action {
+  background: var(--bg-elevated);
+  color: var(--success);
+  font-size: 1.4rem;
+  font-weight: 400;
+}
+
+.guild-icon.action:hover {
+  background: var(--success);
+  color: white;
+}
+
+.guild-rail-divider {
+  width: 32px;
+  height: 2px;
+  background: var(--border);
+  border-radius: 1px;
+  flex-shrink: 0;
+}
+
+.sidebar {
+  width: var(--sidebar-width, 240px);
+  /* Same fixed-remembered-width-vs-shrinking-window issue as
+     `.video-tiles-panel` above, and the same fix — see its comment for
+     the full explanation. 300px reserves enough for `.main-column` to
+     still show something usable (chat, or a call) rather than being
+     squeezed to nothing. */
+  max-width: calc(100% - 300px);
+  flex-shrink: 0;
+  background: var(--bg-alt);
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-resize-handle {
+  width: 5px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  background: transparent;
+  position: relative;
+}
+
+.sidebar-resize-handle:hover,
+.sidebar-resize-handle.dragging {
+  background: var(--accent-fill);
+}
+
+.sidebar-header {
+  height: 64px;
+  box-sizing: border-box;
+  padding: 0 1rem;
+  font-weight: 700;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.sidebar-header-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Groups every icon button together and pushes the whole group to the
+   right, same idea as `.channel-header-right` — the name stays where
+   `justify-content` would otherwise have put it (flush left). */
+.sidebar-header-right {
+  margin-left: auto;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.channel-list {
+  flex: 1;
+  padding: 0.6rem;
+  overflow-y: auto;
+}
+
+.channel-list-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  padding: 0.6rem 0.6rem 0.3rem;
+}
+
+.channel-item {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.92rem;
+}
+
+.channel-item:hover {
+  background: var(--bg-elevated);
+  color: var(--text);
+}
+
+.channel-item.active {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.channel-item.voice-connected {
+  color: var(--success);
+}
+
+.channel-item.voice {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.3rem;
+}
+
+.channel-item-top {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.dm-item .avatar {
+  width: 24px;
+  height: 24px;
+  font-size: 0.7rem;
+  flex-shrink: 0;
+}
+
+.channel-item-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A group DM's row (see `refreshDmList` in chat.ts): two overlapping
+   avatars, then the members' names on one line — as many as fit, the
+   rest ellipsized — with how many people are in it underneath. */
+.avatar-stack {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  --stack-ring: var(--bg-alt);
+}
+
+.channel-item:hover .avatar-stack {
+  --stack-ring: var(--bg-elevated);
+}
+
+/* The active row's fill is a translucent accent over the sidebar
+   color, so the ring has to be that same blend, not a flat color. */
+.channel-item.active .avatar-stack {
+  --stack-ring: color-mix(in srgb, var(--accent) 16%, var(--bg-alt));
+}
+
+.dm-item .avatar-stack .avatar {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  font-size: 0.6rem;
+  box-shadow: 0 0 0 2px var(--stack-ring);
+}
+
+.avatar-stack .avatar-stack-a {
+  top: 0;
+  left: 0;
+}
+
+.avatar-stack .avatar-stack-b {
+  right: 0;
+  bottom: 0;
+}
+
+.dm-item-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.dm-item-text .channel-item-label {
+  flex: none;
+}
+
+.dm-item-sub {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.channel-header-sub {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.channel-manage-btn,
+.channel-invite-btn {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.1s ease;
+}
+
+.channel-item:hover .channel-manage-btn,
+.channel-item:hover .channel-invite-btn {
+  opacity: 1;
+}
+
+.dm-pin-btn {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.1s ease;
+}
+
+.channel-item:hover .dm-pin-btn,
+.dm-item.pinned .dm-pin-btn {
+  opacity: 1;
+}
+
+.dm-item.pinned .dm-pin-btn {
+  color: var(--accent-text);
+}
+
+.voice-participants {
+  display: flex;
+  flex-direction: column;
+  /* Matches .channel-item's own vertical rhythm (0.45rem top+bottom
+     padding — these rows have no padding of their own, so the same
+     breathing room has to come from the gap instead) — was 0.15rem,
+     visibly cramped next to the channel list right above it. */
+  gap: 0.45rem;
+  padding-left: 1.55rem;
+  padding-top: 0.3rem;
+}
+
+.voice-participant {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.voice-participant .avatar {
+  width: 20px;
+  height: 20px;
+  font-size: 0.6rem;
+  flex-shrink: 0;
+  transition: box-shadow 0.1s ease;
+}
+
+.voice-participant-name {
+  flex: 1;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Per-person volume, shown next to each remote participant in a voice
+   channel's sidebar list — deliberately small/unobtrusive since it's a
+   secondary control most of the time. */
+.voice-participant-volume {
+  width: 3.5rem;
+  flex-shrink: 0;
+}
+
+.voice-participant.speaking .avatar {
+  box-shadow: 0 0 0 2px var(--success);
+  animation: speaking-pulse 1.4s ease-in-out infinite;
+}
+
+.voice-participant.speaking .voice-participant-name {
+  color: var(--success);
+}
+
+/* `endCallBtn` (channel header) while `RECONNECT_GRACE_MS` is
+   counting down — the same pulsing cue the old sidebar status bar's
+   label used to give, just on the button that replaced it. */
+.icon-button.reconnecting {
+  color: #e0a020;
+  animation: reconnecting-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes reconnecting-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.voice-control {
+  background: var(--bg);
+  border-radius: 50%;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  transition:
+    box-shadow 0.1s ease,
+    background-color 0.12s ease,
+    color 0.12s ease;
+}
+
+.voice-control.muted {
+  color: var(--danger);
+}
+
+.voice-control.speaking {
+  color: var(--success);
+  box-shadow: 0 0 0 2px var(--success);
+  animation: speaking-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes speaking-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 2px var(--success);
+  }
+  50% {
+    box-shadow: 0 0 0 4px var(--success);
+  }
+}
+
+.voice-control.voice-leave {
+  color: var(--danger);
+}
+
+.voice-control.voice-leave:hover {
+  background: var(--danger-fill);
+  color: white;
+}
+
+.voice-control.active {
+  color: var(--accent-text);
+  background: var(--accent-soft);
+}
+
+/* `hideChatBtn`/`separateWebcamBtn` (channel header) aren't
+   `.voice-control`s — same active look regardless. */
+.channel-header-right .icon-button.active {
+  color: var(--accent-text);
+  background: var(--accent-soft);
+}
+
+/* Video and chat sit side by side (see `.content-split` in
+   views/chat.ts) rather than stacked — the video pane's height is
+   simply "the full column," never negotiated against the message
+   list, which is what used to let one real, full-resolution tile grow
+   taller than the space above the chat and either clip (only the top
+   half visible) or squeeze the messages down to nothing. */
+.video-tiles-panel {
+  position: relative;
+  width: var(--video-pane-width, 45%);
+  /* `--video-pane-width` (once the divider's actually been dragged) is
+     a *remembered* fixed pixel value from whatever the window was
+     sized to at the time — with `flex-shrink: 0`, this panel refuses
+     to shrink below that value no matter how much smaller the window
+     gets later, since `flex-shrink: 0` only ever governs shrinking a
+     value *down*, it doesn't cap what that value can legitimately be
+     in the first place. Confirmed live: a video pane remembered from a
+     wide window, reopened on (or resized down to) a much narrower one,
+     overflowed `.content-split` outright — with `.chat-column` already
+     squeezed to its own `min-width: 0`, the excess had nowhere to go
+     but off the visible edge, reading as tiles "moving off screen"
+     instead of shrinking. `max-width` is a genuinely different
+     constraint from `flex-shrink` — it caps the *resolved* width
+     itself, re-evaluated by the browser on every single layout pass,
+     which is what makes this fix work with zero JS: unlike the pip
+     overlay's own resize bug (which needed a `ResizeObserver` because
+     its position/size were literal `left`/`top`/`width`/`height`
+     pixels computed once in JS), a plain CSS width constraint like
+     this is already inherently live. 240px matches
+     `VIDEO_PANE_MIN_WIDTH` in chat.ts — the same floor the divider
+     drag itself already won't cross, kept in sync by hand since CSS
+     can't read a JS constant directly. */
+  max-width: calc(100% - 240px);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--border);
+  background: var(--bg-alt);
+}

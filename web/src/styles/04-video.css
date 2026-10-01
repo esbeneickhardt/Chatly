@@ -1,0 +1,319 @@
+/* Call video panel: grid, tiles, picture-in-picture. Part 4 of the stylesheet — imported in order from main.ts; the order is the cascade. */
+
+.video-chat-resize-handle {
+  width: 5px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  background: transparent;
+}
+
+.video-chat-resize-handle:hover,
+.video-chat-resize-handle.dragging {
+  background: var(--accent-fill);
+}
+
+/* Between individual video tiles in the grid (2+ people, not focused/
+   spotlighted) — same drag-to-resize idea as the handle above, just
+   generalized to every column/row boundary in the grid instead of one
+   fixed split. See `layoutResizableGrid` in chat.ts. */
+.video-grid-col-handle {
+  cursor: col-resize;
+  background: transparent;
+}
+
+.video-grid-col-handle:hover,
+.video-grid-col-handle.dragging {
+  background: var(--accent-fill);
+}
+
+.video-grid-row-handle {
+  cursor: row-resize;
+  background: transparent;
+}
+
+.video-grid-row-handle:hover,
+.video-grid-row-handle.dragging {
+  background: var(--accent-fill);
+}
+
+.video-tiles {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  /* grid-template-columns/rows are set in JS (see layoutVideoTiles) —
+     shaped to the tile count, as square as possible, so each cell
+     fills the pane fully instead of being sized by the video's own
+     aspect ratio (that sizing is exactly what could overflow the
+     pane). The video element inside letterboxes via object-fit to
+     keep its real proportions without cropping. */
+  gap: 0.5rem;
+  padding: 0.5rem;
+}
+
+/* Focused: one tile large (spotlight), everything else demoted to a
+   filmstrip beside it — switched to by clicking a tile's expand
+   button, not the default layout. A resize handle between the two
+   (see `.video-filmstrip-resize-handle`) lets that split move. */
+.video-tiles.focused {
+  display: flex;
+  flex-direction: column;
+}
+
+.video-tiles.focused .video-tile {
+  width: auto;
+}
+
+.video-tiles.focused .video-tile.spotlight {
+  flex: 1;
+  min-height: 0;
+}
+
+.video-tiles.focused .video-filmstrip {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  flex-shrink: 0;
+  height: var(--filmstrip-height, 120px);
+}
+
+.video-filmstrip-resize-handle {
+  height: 5px;
+  flex-shrink: 0;
+  cursor: row-resize;
+  background: transparent;
+}
+
+.video-filmstrip-resize-handle:hover,
+.video-filmstrip-resize-handle.dragging {
+  background: var(--accent-fill);
+}
+
+.video-tiles.focused .video-filmstrip .video-tile {
+  width: 160px;
+  height: 100%;
+  flex-shrink: 0;
+}
+
+.video-tile {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  background: black;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+/* Every video in this tile popped out into the browser's own
+   Picture-in-Picture window or a window of its own (see `setTilePoppedOut`) —
+   hidden entirely rather than left as an empty box.
+   `layoutVideoTiles`/`ensureVideoTilesVisible` already exclude a tile
+   in this state from their own counts, so the grid reflows around its
+   absence instead of leaving an empty gap. */
+.video-tile.tile-in-pip {
+  display: none;
+}
+
+.video-tile video {
+  width: 100%;
+  height: 100%;
+  /* Never crop: letterbox/pillarbox instead so the real proportions
+     of whatever's being shared always come through, whatever shape
+     the tile itself ends up being. */
+  object-fit: contain;
+  display: block;
+}
+
+/* The video that is the Picture-in-Picture source shows the browser's own
+   "playing in picture-in-picture" placeholder; hide it. Evaluated by the
+   browser against whatever is true right now, so nothing to keep in sync. */
+.video-tile-main:picture-in-picture {
+  display: none;
+}
+
+/* Holds just the video (not the label or controls). This is what goes full
+   screen: a plain box with no grid or flex placement of its own, so it
+   doesn't fight the browser's sizing the way the grid-placed tile did. */
+.video-tile-media {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.video-tile-media:fullscreen {
+  background: black;
+}
+
+video:fullscreen {
+  object-fit: contain;
+  background: black;
+}
+
+.video-tile-label {
+  position: absolute;
+  left: 0.5rem;
+  bottom: 0.4rem;
+  padding: 0.1rem 0.5rem;
+  background: rgba(0, 0, 0, 0.55);
+  color: white;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.video-tile-controls {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.35rem;
+  display: flex;
+  gap: 0.25rem;
+  opacity: 0;
+  transition: opacity 0.1s ease;
+}
+
+.video-tile:hover .video-tile-controls {
+  opacity: 1;
+}
+
+.video-tile-controls .icon-button {
+  background: rgba(0, 0, 0, 0.5);
+  color: white;
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+}
+
+.video-tile-controls .icon-button:hover {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.video-tile-controls .icon-button.active {
+  background: var(--accent-fill);
+}
+
+/* Per-person volume for this tile's remote participant — matches the
+   dark translucent pill styling of the icon buttons next to it. */
+.video-tile-controls .video-tile-volume {
+  width: 4.5rem;
+  align-self: center;
+  accent-color: white;
+}
+
+/* The screen-share audio slider (shown only while that share actually
+   has audio — see `screenAudioActive` in chat.ts) gets a distinct
+   accent so it doesn't get mistaken for the mic-volume slider right
+   next to it. */
+.video-tile-controls .video-tile-screen-volume {
+  accent-color: var(--accent);
+}
+
+/* `.video-tile-controls` above only ever appears on `:hover` — which
+   a touchscreen has no reliable equivalent of (some browsers fake a
+   hover state on the first tap of a two-tap sequence, some don't at
+   all), so on a phone this row was invisible, or only ever half-
+   working, the entire time. `(hover: none)` targets exactly the
+   touch-only case without touching the desktop hover-to-reveal
+   behavior at all. Buttons are also sized up here — 24px is well under
+   the ~44px minimum touch target both Apple's and Google's own
+   guidelines call for. */
+@media (hover: none) {
+  .video-tile-controls {
+    opacity: 1;
+    top: 0.3rem;
+    right: 0.3rem;
+    gap: 0.35rem;
+  }
+
+  .video-tile-controls .icon-button {
+    width: 34px;
+    height: 34px;
+  }
+}
+
+.sidebar-footer {
+  padding: 0.5rem 0.6rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.3rem;
+}
+
+.user-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  overflow: hidden;
+  min-width: 0;
+  /* Now a `<button>` (opens Settings directly — see chat.ts) rather
+     than an inert `<div>`: reset every button default that isn't
+     wanted here rather than the browser's own button chrome. */
+  background: none;
+  border: none;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.user-chip:hover {
+  background: var(--bg-elevated);
+}
+
+.avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.status-dot {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 2px solid var(--bg-alt);
+}
+
+.status-dot.online {
+  background: var(--success);
+}
+
+.user-chip .avatar {
+  width: 32px;
+  height: 32px;
+  font-size: 0.85rem;
+}
+
+.user-chip .identity {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.user-chip .name {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.88rem;
+}
+
+.user-chip .username {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.footer-buttons {
+  display: flex;
+  align-items: center;
+  /* Was 0.1rem — with the round 30px hover backgrounds below, that
+     left barely a sliver between adjacent buttons, so hovering one
+     visually touched/overlapped its neighbor's own hover circle
+     instead of reading as two clearly separate controls. */
+  gap: 0.3rem;
+  flex-shrink: 0;
+}

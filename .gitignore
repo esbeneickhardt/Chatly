@@ -1,0 +1,12 @@
+/target
+/data
+web/node_modules
+web/dist
+web/tsconfig.tsbuildinfo
+*.db
+*.db-wal
+*.db-shm
+.env
+
+web/test-results
+web/playwright-report

@@ -1,0 +1,400 @@
+/* Incoming call card and the DM call stage. Part 9 of the stylesheet — imported in order from main.ts; the order is the cascade. */
+
+.incoming-call-btn.answer {
+  background: var(--success);
+  color: #04210f;
+}
+
+.incoming-call-btn.decline {
+  background: var(--danger-fill);
+}
+
+@keyframes incoming-call-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 8px 28px rgba(0, 0, 0, 0.45),
+      0 0 0 0 rgba(0, 200, 100, 0.4);
+  }
+  50% {
+    box-shadow:
+      0 8px 28px rgba(0, 0, 0, 0.45),
+      0 0 0 8px rgba(0, 200, 100, 0);
+  }
+}
+
+/* While the call stage is on screen it owns the call controls — the
+   header's own hang-up (and, on a phone, mic/camera) would just be a
+   second copy of the same buttons a few centimetres away. Guild voice
+   channels have no stage, so they keep the header ones. On a phone the
+   *compact* stage is hidden entirely (see the mobile block), so there
+   the header copies come back. */
+.channel-header.has-call-stage .end-call-btn,
+.channel-header.has-call-stage .header-mic-btn,
+.channel-header.has-call-stage .header-camera-btn {
+  display: none;
+}
+
+/* The DM call stage — see `renderDmCallStage` in chat.ts. A dark,
+   Discord-style panel above the conversation for as long as anyone's
+   on this DM's call: large avatars (dimmed and pulsing for someone
+   being rung, a green ring for whoever's talking), a status line, and
+   the call controls. Three shapes: the default fixed-height panel
+   above the chat; `.compact` (a slim bar) once a video grid is on
+   screen, since the tiles already show people; and `.fill` (claims
+   everything left) when chat is hidden and there's no video — a phone
+   call, mostly. */
+.dm-call-stage {
+  flex-shrink: 0;
+  /* Content-sized until dragged (see `applyDmCallStageHeight` in
+     chat.ts sets `--dm-call-stage-height`), with everything — avatars,
+     status, controls — as one group centered in whatever height it's
+     given, so extra room becomes even margin above and below rather
+     than a gulf between the status line and the controls. */
+  height: var(--dm-call-stage-height, auto);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.75rem;
+  padding: 1.75rem 1rem;
+  background: #050507;
+}
+
+/* Small enough that the roomy layout would clip: smaller avatars (sized
+   from the height in chat.ts), no name labels, snugger spacing. */
+.dm-call-stage.tight {
+  gap: 0.9rem;
+  padding: 0.75rem 1rem;
+  /* The ringing pulse would otherwise spill past this much smaller
+     stage and get clipped into a heavy dark ring. */
+  --dm-call-pulse-spread: 8px;
+}
+
+.dm-call-stage.tight .dm-call-participant-name {
+  display: none;
+}
+
+.dm-call-stage-handle {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 12px;
+  cursor: row-resize;
+  touch-action: none;
+  background: #050507;
+  border-bottom: 1px solid var(--border);
+}
+
+.dm-call-stage-handle::before {
+  content: "";
+  width: 40px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border);
+  transition: background-color 0.12s ease;
+}
+
+.dm-call-stage-handle:hover::before,
+.dm-call-stage-handle.dragging::before {
+  background: var(--accent-fill);
+}
+
+.dm-call-stage.fill {
+  flex: 1;
+  height: auto;
+  border-bottom: 1px solid var(--border);
+}
+
+/* `.content-split` has nothing in it to size against in `.fill` mode
+   (chat hidden, no video) — without this it would split the leftover
+   space 50/50 with the stage instead of yielding all of it. */
+.dm-call-stage.fill ~ .content-split {
+  flex: 0 0 auto;
+}
+
+.dm-call-center {
+  flex: none;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+}
+
+.dm-call-participants {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+
+.dm-call-participant {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.dm-call-avatar {
+  border-radius: 50%;
+  padding: 4px;
+  box-shadow: 0 0 0 3px transparent;
+  transition:
+    box-shadow 0.12s ease,
+    opacity 0.2s ease;
+}
+
+.dm-call-avatar .avatar {
+  width: var(--dm-call-avatar-size, 96px);
+  height: var(--dm-call-avatar-size, 96px);
+  font-size: calc(var(--dm-call-avatar-size, 96px) * 0.4);
+}
+
+.dm-call-participant.speaking .dm-call-avatar {
+  box-shadow: 0 0 0 3px var(--success);
+}
+
+/* Someone being rung: same avatar, just visibly "not here yet" — and
+   pulsing outward so the panel reads as *waiting*, not frozen. */
+.dm-call-participant.ringing .dm-call-avatar {
+  opacity: 0.6;
+  animation: dm-call-ring-pulse 1.5s ease-out infinite;
+}
+
+.dm-call-participant.declined .dm-call-avatar,
+.dm-call-participant.missed .dm-call-avatar {
+  opacity: 0.35;
+  filter: grayscale(1);
+}
+
+@keyframes dm-call-ring-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.35);
+  }
+  100% {
+    box-shadow: 0 0 0 var(--dm-call-pulse-spread, 22px) rgba(255, 255, 255, 0);
+  }
+}
+
+.dm-call-participant-name {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.005em;
+  color: var(--text);
+}
+
+.dm-call-status {
+  color: var(--text-muted);
+  font-size: 1.05rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  text-align: center;
+}
+
+/* "Ringing" / "Waiting for others to join" with three dots that pulse
+   in turn, instead of a static "…" that reads as frozen. */
+.dm-call-status-dots {
+  display: inline-flex;
+  gap: 3px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+.dm-call-status-dots i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: dm-call-dot 1.2s ease-in-out infinite;
+}
+
+.dm-call-status-dots i:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.dm-call-status-dots i:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes dm-call-dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+
+.dm-call-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-shrink: 0;
+}
+
+.dm-call-control-pill {
+  display: flex;
+  gap: 0.2rem;
+  padding: 0.3rem;
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 16px;
+}
+
+/* Every rule here sets its own background/padding/margin outright —
+   the global `button` rule's accent fill and padding would otherwise
+   leak through. */
+.dm-call-control {
+  width: 48px;
+  height: 44px;
+  padding: 0;
+  margin: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text);
+  align-items: center;
+  justify-content: center;
+}
+
+.dm-call-control:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.dm-call-control.muted {
+  color: var(--danger);
+}
+
+.dm-call-control.active {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.dm-call-control.hangup {
+  width: 68px;
+  height: 52px;
+  border-radius: 14px;
+  background: var(--danger-fill);
+  color: white;
+}
+
+.dm-call-control.hangup:hover {
+  background: color-mix(in srgb, var(--danger) 85%, black);
+}
+
+.dm-call-join {
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.75rem 1.5rem;
+  border-radius: 12px;
+  background: var(--success);
+  color: #04210f;
+  font-weight: 700;
+}
+
+.dm-call-join:hover {
+  background: color-mix(in srgb, var(--success) 88%, black);
+}
+
+.dm-call-stage.compact {
+  height: auto;
+  flex-direction: row;
+  justify-content: space-between;
+  padding: 0.55rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.dm-call-stage.compact .dm-call-center {
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 0.75rem;
+}
+
+.dm-call-stage.compact .dm-call-participants {
+  flex-wrap: nowrap;
+  gap: 0.5rem;
+}
+
+.dm-call-stage.compact .dm-call-avatar {
+  padding: 2px;
+}
+
+.dm-call-stage.compact .dm-call-avatar .avatar {
+  width: 36px;
+  height: 36px;
+  font-size: 1rem;
+}
+
+.dm-call-stage.compact .dm-call-participant-name {
+  display: none;
+}
+
+.reply-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.4rem 0.6rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.reply-banner-text {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.reply-banner-who {
+  flex-shrink: 0;
+}
+
+.reply-banner-preview {
+  /* Same reasoning as `.reply-quote-text` (see there) — flattened to
+     one line by `chat.ts`'s `flattenForReplyPreview` before this ever
+     renders, so a plain single-line ellipsis is correct, and may also
+     now hold an attachment chip (`.reply-attachment-chip`) alongside
+     the text, so this needs to be a flex row rather than a plain
+     block to lay the two out side by side. */
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.reply-banner-preview-text {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.reply-banner-preview * {
+  font-size: inherit;
+}
+
+.reply-banner-preview::before {
+  content: "\2014";
+  margin-right: 0.4rem;
+}
+
+.attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.35rem 0;
+}

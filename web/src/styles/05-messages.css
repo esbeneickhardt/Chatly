@@ -1,0 +1,436 @@
+/* Footer controls, channel header, message list and groups. Part 5 of the stylesheet — imported in order from main.ts; the order is the cascade. */
+
+.footer-buttons .icon-button {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+}
+
+.footer-buttons .voice-control {
+  width: 30px;
+  height: 30px;
+}
+
+.icon-button {
+  position: relative;
+  background: none;
+  color: var(--text-muted);
+  padding: 0.45rem;
+  font-size: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: var(--danger-fill);
+  color: white;
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 15px;
+  text-align: center;
+}
+
+.icon-button:hover {
+  background: var(--bg-elevated);
+  color: var(--text);
+}
+
+.icon-button.danger-icon {
+  color: var(--danger);
+}
+
+.icon-button.danger-icon:hover {
+  background: var(--danger-fill);
+  color: white;
+}
+
+.icon-button.icon-button-labeled {
+  width: auto;
+  padding: 0.4rem 0.65rem;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.main-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--bg);
+}
+
+.content-split {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+/* Chat hidden (see chat.ts's "Hide chat" button) — the video panel's
+   own width is normally a percentage sized against the chat column
+   sitting beside it (see `.video-tiles-panel`'s `--video-pane-width`),
+   so with that column gone it needs to explicitly claim the full
+   width itself rather than leaving an empty gap where chat used to
+   be; the resize handle has nothing left to resize against either. */
+.content-split.chat-hidden .video-tiles-panel {
+  width: 100%;
+  /* The base rule caps the panel at "full width minus room for the chat"
+     (240px); with the chat gone that cap left an empty strip on the right. */
+  max-width: none;
+  border-right: none;
+}
+
+.content-split.chat-hidden .video-chat-resize-handle {
+  display: none;
+}
+
+.chat-column {
+  flex: 1;
+  min-width: 0;
+  /* Needed alongside `.message-list`'s own `min-height: 0` below — a
+     flex item's default `min-height: auto` lets it grow to fit its
+     content instead of shrinking to the space `flex: 1` actually gives
+     it, which is exactly backwards for a column meant to scroll
+     *inside* a fixed-height area. Without both, enough messages (more
+     than fit on a phone screen, easily) just push the composer off the
+     bottom of the viewport instead of the message list scrolling. */
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.channel-header {
+  height: 64px;
+  box-sizing: border-box;
+  padding: 0 1.2rem;
+  border-bottom: 1px solid var(--border);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.channel-header-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.channel-header-right {
+  margin-left: auto;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  /* Explicit rather than relying on `.icon-button`'s own padding for
+     spacing — this now holds up to 6 buttons (batch 47 added
+     end-call/hide-chat/separate-webcam alongside the existing DM/
+     status ones), the same crowding risk the sidebar-footer's icons
+     had before its own gap got widened. */
+  gap: 0.3rem;
+}
+
+.channel-header .icon {
+  color: var(--text-muted);
+}
+
+/* Mobile-only mirrors of the sidebar footer's mic/camera toggles (see
+   `headerMuteBtn`/`headerCameraBtn` in chat.ts) — the footer versions
+   already cover desktop, so these stay hidden there regardless of
+   `.hidden`'s own call-connected state; the mobile media query below
+   is what actually lets them show up. */
+.header-mic-btn,
+.header-camera-btn {
+  display: none;
+}
+
+.message-list {
+  flex: 1;
+  /* See `.chat-column`'s `min-height: 0` comment — this is the other
+     half of the same fix, on the element that actually needs to
+     scroll. Without it, `overflow-y: auto` never has anything to do:
+     the list just keeps growing past the viewport instead of clipping
+     and scrolling within the space `flex: 1` gives it. */
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1rem 1.2rem 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.message-list-empty {
+  margin: auto;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.message-group {
+  display: flex;
+  gap: 0.85rem;
+  padding: 0.45rem 0;
+}
+
+.avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), #4fd1c5);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.avatar-image {
+  object-fit: cover;
+  background: var(--bg-elevated);
+}
+
+.avatar-picker {
+  margin: 0 auto 0.75rem;
+}
+
+.message-group-body {
+  min-width: 0;
+  flex: 1;
+}
+
+.message-author-line {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+}
+
+.message-author {
+  font-weight: 600;
+}
+
+.message-timestamp {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.message-line {
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  font-size: 0.94rem;
+}
+
+.composer-wrap {
+  padding: 0 1.2rem 1.2rem;
+}
+
+.composer {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.4rem 0.5rem;
+}
+
+.composer textarea {
+  flex: 1;
+  width: 100%;
+  resize: none;
+  min-height: 1.6rem;
+  max-height: 12rem;
+  border: none;
+  background: transparent;
+  padding: 0.5rem 0.3rem;
+  line-height: 1.4;
+}
+
+.composer textarea:focus {
+  outline: none;
+}
+
+.composer-preview {
+  flex: 1;
+  min-height: 1.6rem;
+  max-height: 12rem;
+  overflow-y: auto;
+  padding: 0.5rem 0.3rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.composer button {
+  flex-shrink: 0;
+}
+
+.composer-icon-button.active {
+  color: var(--accent-text);
+}
+
+/* Both hidden here unconditionally on desktop, where the full icon
+   row already fits comfortably — shown only inside the mobile media
+   query, where they replace that row instead. */
+.composer-more-btn,
+.composer-more-menu {
+  display: none;
+}
+
+.send-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* Command palette (Ctrl/Cmd+K) */
+
+.palette-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 8, 10, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 12vh 1.5rem 1.5rem;
+  /* Above modals (30): the switcher works from anywhere, even with Settings open. */
+  z-index: 40;
+}
+
+.palette-box {
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 560px;
+  box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+}
+
+.palette-input-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.palette-input-row input {
+  flex: 1;
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 0.95rem;
+}
+
+.palette-input-row input:focus {
+  outline: none;
+}
+
+.palette-results {
+  max-height: 360px;
+  overflow-y: auto;
+  padding: 0.4rem;
+}
+
+.palette-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: none;
+  color: var(--text-muted);
+  text-align: left;
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.palette-row.active {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.palette-row-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.palette-row-hint {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  flex-shrink: 0;
+}
+
+.palette-heading {
+  padding: 0.5rem 0.7rem 0.2rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.palette-row-label mark {
+  background: none;
+  color: var(--accent-text);
+  font-weight: 700;
+}
+
+.palette-footer {
+  padding: 0.5rem 1rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.palette-empty {
+  padding: 1rem;
+  text-align: center;
+}
+
+/* Modals */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 8, 10, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Above the mobile off-canvas drawer (.guild-rail/.sidebar, z-index
+     20) so a modal opened while the drawer happens to be open (e.g.
+     Settings, triggered from inside the drawer) is never rendered
+     underneath it and left unreachable. */
+  z-index: 30;
+  padding: 1.5rem;
+}

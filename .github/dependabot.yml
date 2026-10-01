@@ -1,0 +1,29 @@
+# Keeps the actual attack surface (outdated/vulnerable dependencies,
+# not just what `cargo audit`/`npm audit` catch after the fact) shrinking
+# on its own — see `.github/workflows/dependency-audit.yml` for the
+# "catch it immediately" half of this, and UX_FEEDBACK.md for why both
+# exist. One entry per place a dependency version is actually pinned:
+# the Rust workspace root, the web client, the Dockerfile's own base
+# images, and the workflow files below (Actions are themselves a
+# dependency with the same supply-chain exposure as any crate/package).
+version: 2
+updates:
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "npm"
+    directory: "/web"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "docker"
+    directory: "/docker"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"

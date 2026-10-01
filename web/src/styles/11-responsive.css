@@ -1,0 +1,567 @@
+/* Mobile and touch adaptations. Part 11 of the stylesheet — imported in order from main.ts; the order is the cascade. */
+
+/* ==========================================================================
+   Mobile layout (phone-width viewports) — see chat.ts's `hamburgerBtn`/
+   `mobile-nav-open`/`mobile-nav-backdrop`.
+
+   The desktop layout is three columns sitting side by side (76px guild
+   rail + a resizable ~240px sidebar + everything else) — there's no
+   useful way to keep all three visible on a phone. Below the
+   breakpoint, the rail+sidebar become one off-canvas drawer that
+   slides over the chat instead of squeezing beside it; the video
+   panel and chat column stack vertically instead of sitting side by
+   side for the same reason (two ~180px-wide columns are both useless).
+   ========================================================================== */
+
+.hamburger-btn {
+  display: none;
+}
+
+/* Mobile-only full-width server switcher — see `mobileServerListBtn`
+   in chat.ts for why this exists instead of reusing the desktop-only
+   guild rail above. Hidden unconditionally here (after `.icon-button`'s
+   own `display` so this actually wins the cascade at equal
+   specificity — same reason `.hamburger-btn` above lives down here and
+   not up near the rest of the header styles); the mobile media query
+   below is what actually shows them. */
+.mobile-server-list-btn,
+.mobile-server-list {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .hamburger-btn {
+    display: inline-flex;
+  }
+
+  .app-shell {
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* The rail's whole job (switching servers) moved to
+     `.mobile-server-list` below — a permanently-docked 76px column of
+     icon-only rows made sense as a companion to a full desktop
+     sidebar, but on a phone it just took a fixed fifth of the drawer's
+     width to show almost no information (a handful of unlabeled
+     circles) versus the full-width, actually-legible list a classical
+     messenger app would show instead. */
+  .guild-rail {
+    display: none;
+  }
+
+  .sidebar {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 20;
+    transition: transform 0.2s ease;
+    /* Overrides the resizable desktop width entirely, and now spans
+       the full drawer on its own (nothing left beside it to share
+       space with) — dragging a drawer that's about to slide off-screen
+       makes no sense either way, and a phone-width viewport has no
+       room to spare for a resize handle (hidden below). */
+    width: 100vw !important;
+    max-width: none;
+  }
+
+  .sidebar-resize-handle {
+    display: none;
+  }
+
+  .app-shell:not(.mobile-nav-open) .sidebar {
+    transform: translateX(-100vw);
+  }
+
+  /* While a swipe-to-close drag is live (see chat.ts), the inline
+     `transform` set per touch-move needs to track the finger exactly —
+     the normal 0.2s eased transition above would lag a frame behind
+     every move instead. */
+  .sidebar.nav-swiping {
+    transition: none;
+  }
+
+  .mobile-server-list-btn {
+    display: inline-flex;
+  }
+
+  /* Full-screen (within the drawer) swap-in for the channel list —
+     covers the same box `.sidebar`'s header/channel-list/footer
+     occupy, rather than appearing alongside them, so switching between
+     "servers" and "this server's channels" reads as moving between two
+     screens (classical messenger navigation) instead of two panels
+     competing for a phone's width at once. */
+  .mobile-server-list {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    background: var(--bg-alt);
+  }
+
+  .mobile-server-list-header {
+    height: 64px;
+    box-sizing: border-box;
+    padding: 0 1.2rem;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-weight: 700;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .mobile-server-list-items {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.6rem;
+  }
+
+  .mobile-server-list-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    background: none;
+    color: var(--text);
+    font-weight: 600;
+    padding: 0.55rem 0.5rem;
+    border-radius: var(--radius-sm);
+    text-align: left;
+  }
+
+  .mobile-server-list-row:hover,
+  .mobile-server-list-row.active {
+    background: var(--bg-elevated);
+  }
+
+  .mobile-server-list-row .guild-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 0.95rem;
+    cursor: default;
+    pointer-events: none;
+  }
+
+  .mobile-server-list-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 0.5rem 0.25rem;
+  }
+
+  .mobile-nav-backdrop {
+    display: none;
+  }
+
+  .app-shell.mobile-nav-open .mobile-nav-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 15;
+  }
+
+  .main-column {
+    width: 100%;
+  }
+
+  /* Video call + chat: stacked, not side by side (see
+     `.content-split`'s desktop rule in the main layout section) —
+     `!important` because the video panel's own width is otherwise a
+     percentage set specifically to size itself against the chat
+     column sitting beside it, which no longer applies once they're
+     stacked instead. */
+  .content-split {
+    flex-direction: column;
+  }
+
+  .video-tiles-panel {
+    width: 100% !important;
+    /* The desktop-only `max-width` (see the base rule) reserves room
+       for `.chat-column` sitting *beside* this panel — meaningless
+       once `.content-split` stacks them instead (see `flex-direction:
+       column` above), and actively wrong: on a narrow phone, "leave
+       240px for chat" clamped the panel down to a sliver-thin column
+       instead of the full width `width: 100% !important` right above
+       was already trying to give it. Confirmed live: a phone call
+       rendered as a narrow strip on the left with a huge empty gap
+       next to it, not "extremely small tiles" (last batch's actual
+       fix) but this specific new regression from *this* batch's fix. */
+    max-width: none;
+    /* `height`, not `max-height` — a *cap* can only ever shrink a box
+       down to fit smaller content, never grow one past its natural
+       size, so dragging the divider to make the panel *bigger* had no
+       visible effect at all under the old `max-height: 45vh` (confirmed
+       live: the CSS variable updated correctly on drag, but
+       `getBoundingClientRect().height` never moved). An assigned
+       `height` is what the desktop divider's own `--video-pane-width`
+       already relies on for exactly this reason — matching that here
+       is what actually makes growing *and* shrinking both work.
+       `--video-pane-height` (once the divider's actually been dragged
+       — see `startVideoChatDrag` in chat.ts) overrides the plain 45vh
+       default. */
+    height: var(--video-pane-height, 45vh);
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* "Hide chat" freeing up the chat column's width did nothing on
+     mobile, since the video panel is already full-width there (stacked,
+     not side-by-side) — the actual freed space is *height*, but the
+     45vh cap above stayed in effect regardless, so the space chat used
+     to occupy just went empty instead of the video actually growing
+     into it. Dropping the cap and letting the panel flex to fill
+     whatever's left (chat is `hidden`, so there's nothing else in
+     `.content-split` competing for it) is what "hide chat" is
+     actually for on a phone: a real cam-to-cam view, not a
+     letterboxed one with dead space below it. */
+  .content-split.chat-hidden .video-tiles-panel {
+    max-height: none;
+    flex: 1;
+  }
+
+  /* The desktop handle is a thin vertical bar meant for a mouse
+     (`cursor: col-resize`, 5px wide) — too small a target for a
+     finger, and dragging the wrong axis besides now that `.content-
+     split` stacks video above chat instead of sitting them side by
+     side. Restyled as a full-width horizontal grip instead, the same
+     "pill" affordance a mobile bottom sheet uses, since there's no
+     `:hover` on a touchscreen to reveal a plain unmarked bar the way
+     the desktop version relies on. Hidden along with the rest of this
+     rule whenever chat itself is hidden (`.content-split.chat-hidden
+     .video-chat-resize-handle`, unscoped to any viewport) — nothing to
+     drag the video pane's height against once chat isn't there to
+     trade space with. */
+  .video-chat-resize-handle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 18px;
+    cursor: row-resize;
+    touch-action: none;
+  }
+
+  .video-chat-resize-handle::before {
+    content: "";
+    width: 36px;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--border);
+  }
+
+  .video-chat-resize-handle:hover::before,
+  .video-chat-resize-handle.dragging::before {
+    background: var(--accent-fill);
+  }
+
+  /* The rail/sidebar this toggles are already off-canvas by default on
+     mobile (behind the hamburger drawer) — nothing for this button to
+     do here. */
+  .toggle-sidebar-btn {
+    display: none;
+  }
+
+  /* A phone call already has your full attention on a small screen —
+     the channel name, network-bandwidth widget, and "pop webcam into
+     its own window" control are all things that matter far less right
+     then than being able to reach mute/camera without opening the
+     hamburger drawer first. Step them aside and let the mic/camera
+     mirrors below take their place. Desktop keeps all of these: there
+     the header has room for both, and the sidebar-footer versions of
+     mic/camera would otherwise duplicate the ones already sitting a
+     few pixels to the left. */
+  .channel-header.in-call .channel-header-label,
+  .channel-header.in-call .system-status-btn,
+  .channel-header.in-call .separate-webcam-btn {
+    display: none;
+  }
+
+  .header-mic-btn:not([hidden]),
+  .header-camera-btn:not([hidden]) {
+    display: inline-flex;
+  }
+
+  /* Desktop-only, like the handle above — a phone call uses the fixed
+     self-camera-PiP layout (see `.pip-pair`) or a plain full-bleed
+     grid, neither of which has per-boundary drag handles to show. */
+  .video-grid-col-handle,
+  .video-grid-row-handle {
+    display: none;
+  }
+
+  /* Hiding chat is this app's "actually just show me the call" gesture
+     — reshaped to read as a real phone call screen (edge-to-edge
+     video, floating controls) rather than a video-conferencing panel
+     that happens to fill the screen, matching a native call app
+     instead of a webinar tool. Every call control (mic/deafen/camera/
+     screen) lives only in the sidebar-footer now, off-canvas on mobile
+     behind the (swipeable) hamburger drawer — reaching them from
+     inside this full-screen view means opening that drawer, same as
+     everywhere else on mobile. */
+  .content-split.chat-hidden .video-tiles {
+    gap: 0;
+    padding: 0;
+  }
+
+  .content-split.chat-hidden .video-tile {
+    border-radius: 0;
+  }
+
+  /* Exactly one other person: they fill the whole screen, your own
+     camera becomes a small floating bubble over a corner of it — the
+     same shape a phone's own native call apps use instead of two
+     equal-sized tiles splitting the screen down the middle (see
+     `layoutVideoTiles` in chat.ts, which sets this class). */
+  .content-split.chat-hidden .video-tiles.pip-pair {
+    display: block;
+    position: relative;
+  }
+
+  .content-split.chat-hidden .video-tiles.pip-pair .video-tile {
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
+  }
+
+  .content-split.chat-hidden .video-tiles.pip-pair .video-tile.self {
+    position: absolute;
+    /* Default: the top-right corner. Once dragged or resized, the
+       bubble's own JS (self-bubble.ts) sets these custom properties —
+       and only these, so none of it leaks into the grid layouts this
+       same tile is used in when it isn't a bubble. */
+    top: var(--self-top, 1rem);
+    left: var(--self-left, auto);
+    right: var(--self-right, 1rem);
+    width: var(--self-w, 30%);
+    max-width: var(--self-max-w, 140px);
+    height: auto;
+    aspect-ratio: 3 / 4;
+    /* Fingers drag/pinch this, not scroll or zoom the page. */
+    touch-action: none;
+    cursor: grab;
+    border-radius: var(--radius);
+    border: 2px solid rgba(255, 255, 255, 0.25);
+    box-shadow: 0 6px 20px -4px rgba(0, 0, 0, 0.6);
+    z-index: 5;
+  }
+
+  /* Bottom-right grip for resizing the bubble with one finger — the
+     pinch gesture works too, but is fiddly on something this small. */
+  .content-split.chat-hidden .video-tiles.pip-pair .video-tile.self .self-bubble-resize-handle {
+    display: block;
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 30px;
+    height: 30px;
+    z-index: 6;
+    touch-action: none;
+    background: linear-gradient(
+      135deg,
+      transparent 0 55%,
+      rgba(255, 255, 255, 0.85) 55% 62%,
+      transparent 62% 72%,
+      rgba(255, 255, 255, 0.85) 72% 79%,
+      transparent 79%
+    );
+    border-radius: 0 0 var(--radius) 0;
+  }
+
+  /* Settings/Manage Server go full-screen on mobile instead of
+     floating as a shrunk card with the chat behind it half-visible
+     around every edge (confirmed live: a 342×717 card adrift in a
+     390×844 screen, tabs clipped at its own right edge underneath the
+     close button — neither "a clean floating dialog" nor "a real
+     screen," just an awkward in-between). A full-bleed screen is what
+     every reference app (Discord, Slack, Teams) actually does here on
+     phone-sized viewports. */
+  /* The compact call bar (avatars + controls above a video grid) is
+     redundant on a phone: the header already carries mic/camera/leave
+     during a call (`headerMuteBtn` etc.), and there's no room to spare
+     above the video. The full `.fill` stage stays — that's the phone
+     call screen. */
+  .dm-call-stage.compact {
+    display: none;
+  }
+
+  .channel-header.has-call-stage.stage-compact .end-call-btn:not([hidden]),
+  .channel-header.has-call-stage.stage-compact .header-mic-btn:not([hidden]),
+  .channel-header.has-call-stage.stage-compact .header-camera-btn:not([hidden]) {
+    display: inline-flex;
+  }
+
+  .dm-call-stage-handle {
+    height: 20px;
+  }
+
+  .modal-backdrop:has(> .settings-modal) {
+    padding: 0;
+  }
+
+  .settings-modal {
+    max-width: none;
+    max-height: none;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    border-radius: 0;
+  }
+
+  .settings-body {
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+    max-height: none;
+  }
+
+  /* A horizontal scrolling strip above the content instead of a side
+     column that would leave almost nothing for the content itself at
+     this width. `padding-top` reserves a dedicated strip above the tab
+     row for `.settings-close` (a `position: absolute; top/right: 1rem`
+     overlay regardless of layout, so it isn't part of this row's own
+     flex flow at all) — a *right*-side reservation was tried first and
+     didn't actually work: it only kept the *last* tab clear once
+     scrolled all the way over, but did nothing about whichever tab
+     happens to sit under that top-right corner at the strip's initial,
+     unscrolled position (confirmed live: with 7 tabs, that was
+     "Account," not the last one at all — the close button's hit area
+     was sitting directly on top of its label). Reserving vertical
+     space instead fixes it regardless of tab count or label lengths,
+     since no tab's row can ever reach up into the close button's own
+     row above it. Scrollbar chrome hidden on both this and
+     `.settings-content` below (still scrolls by touch — see the swipe
+     handling in settings.ts/guild-settings.ts for switching tabs
+     without even needing to) — a visible scrollbar track here read as
+     much more "web page" than "phone app." */
+  .settings-nav {
+    width: 100%;
+    flex-direction: row;
+    overflow-x: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    border-radius: 0;
+    padding: 3.25rem 0.5rem 0.5rem;
+    scrollbar-width: none;
+  }
+
+  .settings-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* The profile card only makes sense as the top of a vertical list —
+     in the horizontal tab strip mobile switches to just above, it'd
+     either get squeezed in among the tab buttons or force them onto a
+     second row for no real benefit at this width. */
+  .settings-nav-identity {
+    display: none;
+  }
+
+  .settings-nav-item {
+    flex-shrink: 0;
+  }
+
+  .settings-content {
+    padding: 1.25rem;
+    scrollbar-width: none;
+    /* A swipe left/right switches tabs outright (see chat.ts's sibling
+       gesture on the mobile nav drawer for the same underlying idiom)
+       rather than trying to pan this axis, so nothing is lost by
+       disabling the browser's own horizontal-swipe-to-navigate-back
+       gesture here — and disabling it means that gesture can't fire
+       *instead of* ours on a swipe that starts inside this panel. */
+    touch-action: pan-y;
+  }
+
+  .settings-content::-webkit-scrollbar {
+    display: none;
+  }
+
+  .modal {
+    padding: 1.25rem;
+  }
+
+  /* Keeps the edge-to-edge nav/content design (no padding gap around
+     them) at every width — without this, the generic `.modal` padding
+     rule just above, at equal selector specificity and later in the
+     cascade, would win back over `.settings-modal`'s own zero padding. */
+  .settings-modal {
+    padding: 0;
+  }
+
+  /* The composer's icon row (attach/emoji/markdown/preview) plus a
+     text+icon Send button eats most of a 390px-wide screen, leaving
+     the actual message input a sliver a few characters wide. Shrink
+     the composer's side padding, drop the Send button down to just
+     its icon, and let the textarea claim the reclaimed space. */
+  .composer-wrap {
+    padding: 0 0.5rem 0.75rem;
+  }
+
+  .composer {
+    position: relative;
+    padding: 0.3rem 0.35rem;
+    gap: 0.3rem;
+  }
+
+  .send-button-label {
+    display: none;
+  }
+
+  .send-button {
+    padding-left: 0.6rem;
+    padding-right: 0.6rem;
+  }
+
+  /* Messenger/Planly-style "+" tray: the four separate icon buttons
+     collapse into one round button plus a popover, instead of five
+     controls (four icons + send) all fighting the text input for
+     space in a ~350px-wide row. */
+  .composer-icon-button {
+    display: none;
+  }
+
+  .composer-more-btn {
+    display: inline-flex;
+  }
+
+  .composer-more-menu {
+    position: absolute;
+    left: 0.35rem;
+    bottom: 100%;
+    margin-bottom: 0.5rem;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.5rem;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.6rem;
+    box-shadow: 0 12px 32px -12px rgba(0, 0, 0, 0.6);
+    z-index: 20;
+  }
+
+  .composer-more-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+    background: none;
+    color: var(--text);
+    font-weight: 500;
+    font-size: 0.68rem;
+    padding: 0.3rem 0.1rem;
+  }
+
+  .composer-more-item-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--bg-alt);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}

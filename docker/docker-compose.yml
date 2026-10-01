@@ -1,0 +1,88 @@
+name: chatly
+
+services:
+  chatly:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "127.0.0.1:8090:8080"
+      # Not loopback-only like the HTTP port above: WebRTC media is a
+      # direct UDP flow between each browser and this SFU, so it can't
+      # ride through the nginx reverse proxy the way HTTP/WebSocket
+      # traffic does — it has to be reachable from the internet
+      # directly for a remote peer's call/video to work at all.
+      - "50000:50000/udp"
+    volumes:
+      - ../data:/data
+    environment:
+      DATA_DIR: /data
+      LISTEN_ADDR: 0.0.0.0:8080
+      LOG_LEVEL: info
+      PUBLIC_URL: https://chatty.ebbemonster.dk
+      VOICE_PORT: 50000
+      VOICE_PUBLIC_IP: 87.61.87.21
+      # The host's nginx reverse proxy now sits in front of every real
+      # visitor (see docs/admin.md's TRUSTED_PROXY table). Without this,
+      # every request's peer address is this container's docker bridge
+      # gateway (nginx connecting in from the host) — the SAME address
+      # for every real visitor — which quietly makes IP-keyed rate
+      # limits (registration, login) effectively global instead of
+      # per-person. Value is this compose network's bridge gateway;
+      # check `docker inspect chatly-chatly-1 --format
+      # '{{json .NetworkSettings.Networks}}'` if this network is ever
+      # recreated and the gateway address changes.
+      TRUSTED_PROXY: 172.22.0.1
+      # Shared with the `coturn` service's --static-auth-secret below —
+      # must stay identical to it, or every issued TURN credential will
+      # fail to authenticate. See api::voice for how this gets turned
+      # into short-lived per-session credentials (coturn's
+      # --use-auth-secret REST API convention), and voice.ts for how
+      # the browser actually uses them.
+      # Kept in docker/.env (git-ignored), not here.
+      TURN_SECRET: ${TURN_SECRET:?set TURN_SECRET in docker/.env}
+      TURN_PORT: 3478
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  coturn:
+    # A TURN relay: when two real peers' NATs can't complete a direct
+    # UDP handshake with each other (symmetric NAT, CGNAT — common on
+    # mobile networks and plenty of home routers; confirmed happening
+    # for real between two genuine users, not a same-host testing
+    # artifact — see UX_FEEDBACK.md), the browser relays its media
+    # through this instead. Without it, voice/video is limited to
+    # network pairs that happen to traverse directly, which real users
+    # calling each other from different networks can't rely on.
+    image: coturn/coturn:4.18.0-r0
+    command:
+      - "-n"
+      - "--realm=chatty.ebbemonster.dk"
+      - "--external-ip=87.61.87.21"
+      - "--listening-port=3478"
+      - "--min-port=49160"
+      - "--max-port=49260"
+      - "--use-auth-secret"
+      # Must match TURN_SECRET above exactly.
+      - "--static-auth-secret=${TURN_SECRET:?set TURN_SECRET in docker/.env}"
+      - "--no-cli"
+      - "--no-tcp-relay"
+      - "--log-file=stdout"
+    ports:
+      - "3478:3478/udp"
+      - "3478:3478/tcp"
+      # The actual relayed media flows over a port from this range, one
+      # per active relay allocation — needs to be reachable from the
+      # internet directly for the same reason the voice SFU's own UDP
+      # port does (see the `chatly` service's port comment above).
+      - "49160-49260:49160-49260/udp"
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

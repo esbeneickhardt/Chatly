@@ -1,0 +1,306 @@
+/* Emoji picker, message actions, replies, jump highlight. Part 8 of the stylesheet — imported in order from main.ts; the order is the cascade. */
+
+.emoji-option:hover {
+  background: var(--border);
+}
+
+.mention {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  border-radius: 4px;
+  padding: 0 0.2rem;
+  font-weight: 600;
+}
+
+.mention-popover {
+  position: fixed;
+  z-index: 20;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  box-shadow: 0 12px 32px -12px rgba(0, 0, 0, 0.6);
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.markdown-snippet-popover {
+  position: fixed;
+  z-index: 20;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  box-shadow: 0 12px 32px -12px rgba(0, 0, 0, 0.6);
+  max-height: 320px;
+  overflow-y: auto;
+  min-width: 200px;
+}
+
+.markdown-snippet-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  background: none;
+  color: var(--text);
+  text-align: left;
+  padding: 0.45rem 0.6rem;
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+  font-size: 0.85rem;
+}
+
+.markdown-snippet-option:hover {
+  background: var(--border);
+}
+
+.markdown-snippet-option span:last-child {
+  color: var(--text-muted);
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+}
+
+.message-item {
+  position: relative;
+  margin-bottom: 0.15rem;
+  padding-right: 2px;
+}
+
+.date-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1.25rem 0 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.date-divider::before,
+.date-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.message-actions {
+  position: absolute;
+  top: -14px;
+  right: 0;
+  display: none;
+  gap: 0.1rem;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.1rem;
+  box-shadow: 0 4px 12px -4px rgba(0, 0, 0, 0.5);
+}
+
+.message-item:hover .message-actions {
+  display: flex;
+}
+
+.message-action-btn {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+}
+
+.message-action-btn.danger:hover {
+  background: var(--danger-fill);
+  color: white;
+}
+
+.message-edited-marker {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.reply-quote {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  margin-bottom: 0.2rem;
+  padding-left: 0.4rem;
+  border-left: 2px solid var(--border);
+}
+
+.reply-quote-link {
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+
+.reply-quote-link:hover {
+  color: var(--text);
+  background: var(--bg-elevated);
+}
+
+.reply-quote-author {
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.reply-quote-text {
+  /* `chat.ts`'s `flattenForReplyPreview` already collapses the quoted
+     content to one line before this ever renders, so a plain
+     single-line ellipsis is correct here — no need for the old
+     `max-height` clip, which actually hid this entirely for any
+     multi-line/block content (its own margin/padding pushed the real
+     text below the clipped area) rather than gracefully truncating
+     it. */
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1;
+}
+
+.reply-quote-text * {
+  font-size: 0.8rem;
+}
+
+/* Shared by the message-list quote above and the composer's "Replying
+   to" banner (`.reply-banner-preview`) — a small thumbnail (images) or
+   file icon plus filename, so a reply to an attachment-only message
+   shows *something* recognizable instead of a bare "(attachment)"
+   label with no idea what it actually was. */
+.reply-attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-shrink: 0;
+  max-width: 160px;
+}
+
+.reply-attachment-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.reply-attachment-filename {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* Briefly draws the eye to a message a reply quote jumped to (see
+   `jumpToMessage`) — otherwise the scroll-into-view alone can leave it
+   unclear which of several now-centered messages is actually the one
+   that was linked to. */
+@keyframes message-jump-flash {
+  0%,
+  100% {
+    background: transparent;
+  }
+  25% {
+    background: color-mix(in srgb, var(--accent) 25%, transparent);
+  }
+}
+
+.message-jump-highlight {
+  animation: message-jump-flash 1.2s ease;
+}
+
+.message-edit-wrap {
+  background: var(--bg-elevated);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  padding: 0.4rem;
+}
+
+.message-edit-wrap textarea {
+  width: 100%;
+  resize: none;
+  border: none;
+  background: transparent;
+  padding: 0.2rem;
+  min-height: 1.6rem;
+}
+
+.message-edit-wrap textarea:focus {
+  outline: none;
+}
+
+.message-edit-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.3rem;
+}
+
+.message-edit-actions .muted-text {
+  flex: 1;
+  font-size: 0.75rem;
+}
+
+.incoming-call-banner {
+  position: fixed;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  min-width: min(360px, calc(100vw - 2rem));
+  max-width: calc(100vw - 2rem);
+  background: var(--bg-elevated);
+  border: 1px solid var(--success);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+  border-radius: var(--radius-lg);
+  padding: 0.75rem 0.85rem;
+  animation: incoming-call-pulse 1.6s ease-in-out infinite;
+}
+
+.incoming-call-avatar .avatar {
+  width: 48px;
+  height: 48px;
+  font-size: 1.15rem;
+}
+
+.incoming-call-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.incoming-call-text strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.incoming-call-text span {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.incoming-call-btn {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 50%;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  color: white;
+}

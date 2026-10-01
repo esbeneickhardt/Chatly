@@ -1,0 +1,45 @@
+# Catches a newly-published advisory against a dependency already in
+# the lockfiles immediately, rather than waiting for Dependabot's
+# weekly pass (see `.github/dependabot.yml`) to notice the same thing.
+# The two are complementary: this is "does anything we already depend
+# on have a known vulnerability, right now," Dependabot is "keep
+# versions current so fewer advisories ever apply in the first place."
+name: Dependency audit
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "Cargo.lock"
+      - "web/package-lock.json"
+      - ".github/workflows/dependency-audit.yml"
+  pull_request:
+    paths:
+      - "Cargo.lock"
+      - "web/package-lock.json"
+  schedule:
+    # Weekly even with no dependency changes — a new advisory can be
+    # published against a version that's been sitting in the lockfile
+    # unchanged for months.
+    - cron: "0 6 * * 1"
+
+jobs:
+  cargo-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@cargo-audit
+      - run: cargo audit
+
+  npm-audit:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm audit --omit=dev --audit-level=high

@@ -1,0 +1,334 @@
+// The global admin's panel: everything across the *entire deployment*,
+// as opposed to one server's own admin tools (Manage server). Two views —
+// every account, and every server (whether or not the admin has joined
+// it). Only ever shown to the instance owner (`is_owner`), and the API
+// enforces that independently (see `api::admin`).
+//
+// Vocabulary used throughout the UI: a "server" is what "Add Server"
+// creates; "global" means across the whole instance.
+
+import { api, ApiError, type AdminGuildSummary, type User } from "../api";
+import { confirmDialog, renderAvatarEl } from "../ui";
+import { renderAuditLog } from "./audit-log";
+
+function section(heading: string, ...children: Node[]): HTMLElement {
+  const el = document.createElement("section");
+  el.className = "settings-section";
+  const h = document.createElement("h3");
+  h.textContent = heading;
+  el.append(h, ...children);
+  return el;
+}
+
+function note(text: string, className = "muted-text"): HTMLElement {
+  const p = document.createElement("p");
+  p.className = className;
+  p.textContent = text;
+  return p;
+}
+
+function badge(text: string): HTMLElement {
+  const b = document.createElement("span");
+  b.className = "session-badge";
+  b.textContent = text;
+  return b;
+}
+
+/** "All accounts" / "All servers", switched by a small segmented
+ * control; each view loads lazily the first time it's shown. */
+export function renderGlobalAdminSection(container: HTMLElement): void {
+  const intro = note(
+    "You're the global admin: you can see and manage everything on this deployment. " +
+      "Each server also has its own admins (its owner and anyone they promote) — their authority stops at their server.",
+  );
+
+  const accountsPanel = document.createElement("div");
+  const serversPanel = document.createElement("div");
+  const activityPanel = document.createElement("div");
+  const views = [
+    {
+      id: "accounts",
+      label: "All accounts",
+      panel: accountsPanel,
+      load: () => renderAccounts(accountsPanel),
+    },
+    { id: "servers", label: "All servers", panel: serversPanel, load: () => renderServers(serversPanel) },
+    {
+      id: "activity",
+      label: "Activity",
+      panel: activityPanel,
+      load: () =>
+        activityPanel.appendChild(
+          section(
+            "Activity",
+            note("What you have done to the deployment: deleting accounts or servers, reassigning owners."),
+            renderAuditLog("/api/admin/audit-log"),
+          ),
+        ),
+    },
+  ];
+  const loaded = new Set<string>();
+
+  const switcher = document.createElement("div");
+  switcher.className = "segmented";
+  switcher.setAttribute("role", "tablist");
+  const buttons = views.map((view) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.setAttribute("role", "tab");
+    btn.textContent = view.label;
+    btn.addEventListener("click", () => show(view.id));
+    return btn;
+  });
+  switcher.append(...buttons);
+
+  function show(id: string): void {
+    views.forEach((view, i) => {
+      const active = view.id === id;
+      view.panel.hidden = !active;
+      buttons[i].classList.toggle("active", active);
+      buttons[i].setAttribute("aria-selected", String(active));
+      if (active && !loaded.has(id)) {
+        loaded.add(id);
+        void view.load();
+      }
+    });
+  }
+
+  container.append(intro, switcher, accountsPanel, serversPanel, activityPanel);
+  show("accounts");
+}
+
+// --- All accounts ---------------------------------------------------------
+
+function renderAccounts(panel: HTMLElement): void {
+  const list = document.createElement("div");
+  panel.appendChild(section("All accounts", list));
+
+  async function load(): Promise<void> {
+    list.replaceChildren(note("Loading…"));
+    try {
+      const users = await api.get<User[]>("/api/admin/users");
+      list.replaceChildren(...users.map((u) => userRow(u)));
+    } catch {
+      list.replaceChildren(note("Failed to load accounts."));
+    }
+  }
+
+  function userRow(u: User): HTMLElement {
+    const row = document.createElement("div");
+    row.className = "session-row";
+
+    const identity = document.createElement("div");
+    identity.className = "friend-identity";
+    identity.append(renderAvatarEl(u.display_name, u.avatar_file_id));
+    const name = document.createElement("span");
+    name.textContent = `${u.display_name} (@${u.username})`;
+    identity.appendChild(name);
+    if (u.is_owner) identity.appendChild(badge("Global admin"));
+    row.appendChild(identity);
+
+    if (!u.is_owner) {
+      const deleteBtn = document.createElement("button");
+      deleteBtn.type = "button";
+      deleteBtn.className = "secondary";
+      deleteBtn.textContent = "Delete…";
+      deleteBtn.addEventListener("click", () => deleteBtn.replaceWith(deletePanel(u)));
+      row.appendChild(deleteBtn);
+    }
+    return row;
+  }
+
+  // No choice to make here — removing someone else's account always
+  // wipes everything (messages actually deleted, the account row
+  // hard-removed rather than left as a "Deleted User" tombstone, every
+  // server they own taken down too, even ones with other people still in
+  // them — see `api::admin::delete_user`).
+  function deletePanel(u: User): HTMLElement {
+    const wrap = document.createElement("div");
+    wrap.className = "admin-delete-panel";
+
+    const confirmBtn = document.createElement("button");
+    confirmBtn.type = "button";
+    confirmBtn.className = "danger";
+    confirmBtn.textContent = "Confirm";
+    const errorText = note("", "error-text");
+    errorText.hidden = true;
+
+    confirmBtn.addEventListener("click", async () => {
+      const ok = await confirmDialog({
+        title: "Delete this account?",
+        message: `Deletes ${u.display_name}'s account, every message they've sent, and every server they own — including ones other people are still in. This can't be undone.`,
+        confirmLabel: "Delete account",
+        danger: true,
+      });
+      if (!ok) return;
+      confirmBtn.disabled = true;
+      try {
+        await api.post(`/api/admin/users/${u.id}/delete`);
+        await load();
+      } catch (err) {
+        errorText.textContent = err instanceof ApiError ? err.message : "Something went wrong.";
+        errorText.hidden = false;
+        confirmBtn.disabled = false;
+      }
+    });
+
+    const cancelBtn = document.createElement("button");
+    cancelBtn.type = "button";
+    cancelBtn.className = "secondary";
+    cancelBtn.textContent = "Cancel";
+    cancelBtn.addEventListener("click", () => void load());
+
+    wrap.append(confirmBtn, cancelBtn, errorText);
+    return wrap;
+  }
+
+  void load();
+}
+
+// --- All servers ----------------------------------------------------------
+
+function renderServers(panel: HTMLElement): void {
+  const list = document.createElement("div");
+  panel.appendChild(
+    section("All servers", note("Every server on this deployment, including ones you haven't joined."), list),
+  );
+
+  async function load(): Promise<void> {
+    list.replaceChildren(note("Loading…"));
+    try {
+      const guilds = await api.get<AdminGuildSummary[]>("/api/admin/guilds");
+      list.replaceChildren(
+        ...(guilds.length ? guilds.map((g) => serverCard(g)) : [note("There are no servers yet.")]),
+      );
+    } catch {
+      list.replaceChildren(note("Failed to load servers."));
+    }
+  }
+
+  function serverCard(g: AdminGuildSummary): HTMLElement {
+    const card = document.createElement("div");
+    card.className = "admin-server-card";
+
+    const row = document.createElement("div");
+    row.className = "session-row";
+    const identity = document.createElement("div");
+    identity.className = "friend-identity";
+    identity.append(renderAvatarEl(g.name, g.icon_file_id));
+    const text = document.createElement("div");
+    const name = document.createElement("div");
+    name.textContent = g.name;
+    const meta = document.createElement("div");
+    meta.className = "muted-text admin-server-meta";
+    meta.textContent =
+      `Owner ${g.owner_display_name} (@${g.owner_username}) · ` +
+      `${g.member_count} member${g.member_count === 1 ? "" : "s"} · ` +
+      `${g.channel_count} channel${g.channel_count === 1 ? "" : "s"} · ` +
+      `created ${new Date(g.created_at).toLocaleDateString()}`;
+    text.append(name, meta);
+    identity.appendChild(text);
+    row.appendChild(identity);
+
+    const actions = document.createElement("div");
+    actions.className = "member-row-actions";
+    const detail = document.createElement("div");
+    detail.hidden = true;
+    detail.className = "admin-server-detail";
+
+    const membersBtn = document.createElement("button");
+    membersBtn.type = "button";
+    membersBtn.className = "secondary";
+    membersBtn.textContent = "Members";
+    membersBtn.setAttribute("aria-expanded", "false");
+    membersBtn.addEventListener("click", async () => {
+      const open = detail.hidden;
+      detail.hidden = !open;
+      membersBtn.setAttribute("aria-expanded", String(open));
+      if (open) await showMembers(g, detail);
+    });
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.type = "button";
+    deleteBtn.className = "danger";
+    deleteBtn.textContent = "Delete…";
+    deleteBtn.addEventListener("click", async () => {
+      const ok = await confirmDialog({
+        title: `Delete "${g.name}"?`,
+        message: `Permanently deletes this server, its ${g.channel_count} channel${g.channel_count === 1 ? "" : "s"} and every message in them, for all ${g.member_count} member${g.member_count === 1 ? "" : "s"}. This can't be undone.`,
+        confirmLabel: "Delete server",
+        danger: true,
+      });
+      if (!ok) return;
+      deleteBtn.disabled = true;
+      try {
+        await api.del(`/api/admin/guilds/${g.id}`);
+        await load();
+      } catch (err) {
+        detail.hidden = false;
+        detail.replaceChildren(
+          note(err instanceof ApiError ? err.message : "Couldn't delete that server.", "error-text"),
+        );
+        deleteBtn.disabled = false;
+      }
+    });
+
+    actions.append(membersBtn, deleteBtn);
+    row.appendChild(actions);
+    card.append(row, detail);
+    return card;
+  }
+
+  /** The server's members, with a way to hand the server to one of them
+   * (for an owner who's gone) — the new owner has to already be in it. */
+  async function showMembers(g: AdminGuildSummary, detail: HTMLElement): Promise<void> {
+    detail.replaceChildren(note("Loading…"));
+    try {
+      const members = await api.get<User[]>(`/api/admin/guilds/${g.id}/members`);
+      const rows = members.map((m) => {
+        const row = document.createElement("div");
+        row.className = "session-row";
+        const identity = document.createElement("div");
+        identity.className = "friend-identity";
+        identity.append(renderAvatarEl(m.display_name, m.avatar_file_id));
+        const label = document.createElement("span");
+        label.textContent = `${m.display_name} (@${m.username})`;
+        identity.appendChild(label);
+        if (m.id === g.owner_id) identity.appendChild(badge("Server owner"));
+        row.appendChild(identity);
+        if (m.id !== g.owner_id) {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "secondary";
+          btn.textContent = "Make owner";
+          btn.addEventListener("click", async () => {
+            const ok = await confirmDialog({
+              title: "Change the server owner?",
+              message: `${m.display_name} becomes the owner of "${g.name}", and ${g.owner_display_name} keeps their membership without the owner's control.`,
+              confirmLabel: "Make owner",
+              danger: true,
+            });
+            if (!ok) return;
+            btn.disabled = true;
+            try {
+              await api.post(`/api/admin/guilds/${g.id}/owner`, { user_id: m.id });
+              await load();
+            } catch (err) {
+              btn.disabled = false;
+              row.appendChild(
+                note(err instanceof ApiError ? err.message : "Couldn't change the owner.", "error-text"),
+              );
+            }
+          });
+          row.appendChild(btn);
+        }
+        return row;
+      });
+      detail.replaceChildren(...rows);
+    } catch {
+      detail.replaceChildren(note("Failed to load members.", "error-text"));
+    }
+  }
+
+  void load();
+}

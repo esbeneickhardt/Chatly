@@ -1,0 +1,429 @@
+/* Command palette, confirm dialogs, lightbox, modals. Part 6 of the stylesheet — imported in order from main.ts; the order is the cascade. */
+
+/* Opened *from inside* the settings modal (or anywhere else already
+   showing a `.modal-backdrop`), so this needs to win the stack
+   regardless of DOM order — a plain z-index tie would normally resolve
+   to "whichever was appended last," which happens to be correct today
+   but is fragile to rely on. */
+.confirm-dialog-backdrop {
+  z-index: 40;
+}
+
+.confirm-dialog {
+  max-width: 420px;
+}
+
+.confirm-dialog h3 {
+  margin: 0 0 0.6rem;
+  font-size: 1.1rem;
+}
+
+.confirm-dialog p {
+  margin: 0;
+}
+
+.modal {
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.75rem;
+  width: 100%;
+  max-width: 480px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.6);
+}
+
+.lightbox-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.lightbox-image {
+  max-width: min(90vw, 1400px);
+  max-height: 85vh;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+}
+
+.lightbox-caption {
+  position: absolute;
+  bottom: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.85rem;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 0.3rem 0.8rem;
+  border-radius: 999px;
+  max-width: 80vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lightbox-close {
+  position: absolute;
+  top: 1rem;
+  right: 1.25rem;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border-radius: 999px;
+  width: 2.5rem;
+  height: 2.5rem;
+  font-size: 1.5rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lightbox-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.lightbox-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border-radius: 999px;
+  width: 3rem;
+  height: 3rem;
+  font-size: 2rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lightbox-nav:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.lightbox-prev {
+  left: 1.25rem;
+}
+
+.lightbox-next {
+  right: 1.25rem;
+}
+
+@media (max-width: 600px) {
+  .lightbox-nav {
+    width: 2.4rem;
+    height: 2.4rem;
+    font-size: 1.6rem;
+  }
+  .lightbox-prev {
+    left: 0.4rem;
+  }
+  .lightbox-next {
+    right: 0.4rem;
+  }
+}
+
+.modal h2 {
+  margin: 0 0 1.25rem;
+  letter-spacing: -0.01em;
+}
+
+.modal h3 {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  margin: 1.5rem 0 0.6rem;
+}
+
+.modal-close {
+  float: right;
+}
+
+.server-choice {
+  display: block;
+  width: 100%;
+  text-align: left;
+  margin: 0 0 0.75rem;
+  padding: 0.9rem 1.1rem;
+}
+
+.server-choice.secondary {
+  margin-bottom: 0;
+}
+
+.server-icon-picker {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  margin: 0.25rem auto 1.25rem;
+  position: relative;
+  cursor: pointer;
+  background: var(--bg-elevated);
+  border: 2px dashed var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  transition: border-color 0.12s ease;
+}
+
+.server-icon-picker:hover {
+  border-color: var(--accent);
+}
+
+.server-icon-picker.uploading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.server-icon-picker img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.server-icon-placeholder {
+  color: var(--text-muted);
+}
+
+.channel-kind-row {
+  display: flex;
+  gap: 0.6rem;
+  margin-bottom: 1.1rem;
+}
+
+.channel-kind-option {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  background: var(--bg);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  padding: 0.6rem;
+}
+
+.channel-kind-option.active {
+  background: var(--accent-soft);
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.cropper-modal {
+  max-width: 380px;
+  text-align: center;
+}
+
+.cropper-viewport {
+  position: relative;
+  width: 280px;
+  height: 280px;
+  margin: 0 auto 1.1rem;
+  overflow: hidden;
+  background: var(--bg);
+  cursor: grab;
+  touch-action: none;
+}
+
+.cropper-viewport:active {
+  cursor: grabbing;
+}
+
+.cropper-viewport-circle {
+  border-radius: 50%;
+}
+
+.cropper-viewport-square {
+  border-radius: var(--radius);
+}
+
+.cropper-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  max-width: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.cropper-zoom-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 1.1rem;
+}
+
+.cropper-zoom-row input[type="range"] {
+  flex: 1;
+}
+
+.cropper-zoom-label {
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  width: 1rem;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+}
+
+/* No shared "Settings" title bar above the nav/content split — that
+   strip used to sit on `.modal`'s own background (`--bg-alt`) while
+   the nav directly below it painted its own, different background
+   (`--bg`), so the "one panel" the nav is supposed to read as visibly
+   seamed in two colors right at its own top edge. Zeroing `.modal`'s
+   padding here and letting `.settings-nav`/`.settings-content` reach
+   every edge themselves is what makes the nav a single continuous
+   surface from the very top of the modal to the very bottom. */
+.settings-modal {
+  max-width: 900px;
+  max-height: 85vh;
+  width: 100%;
+  padding: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.settings-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 2;
+}
+
+/* `.settings-modal` zeroes the modal's own padding so the nav/content
+   split can reach every edge (see the comment above `.settings-modal`)
+   — that leaves a modal's transient pre-nav "Loading…" text with none
+   at all unless it opts back in here. */
+.settings-loading {
+  padding: 1.75rem;
+  margin: 0;
+}
+
+.settings-body {
+  display: flex;
+  gap: 0;
+  height: 85vh;
+  max-height: 85vh;
+}
+
+.settings-nav {
+  width: 232px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  background: var(--bg);
+  padding: 1rem 0.75rem;
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+  border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+}
+
+.settings-nav-identity {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.5rem 0.65rem 1rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-nav-identity .avatar {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+}
+
+.settings-nav-identity-name {
+  font-weight: 700;
+  font-size: 0.9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-nav-identity-username {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-nav-item {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.6rem;
+  background: none;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-align: left;
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--radius-sm);
+  transition:
+    background-color 0.1s ease,
+    color 0.1s ease;
+}
+
+.settings-nav-item:hover {
+  background: var(--bg-elevated);
+  color: var(--text);
+}
+
+.settings-nav-item.active {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+/* Short-lived feedback messages (see `showNotice` in ui.ts). */
+.notice-host {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: min(24rem, calc(100vw - 2rem));
+}
+
+.notice {
+  padding: 0.6rem 0.85rem;
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated, #23232b);
+  color: var(--text, #fff);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.15));
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  font-size: 0.85rem;
+}
+
+/* "A new version is available" (see update-check.ts). */
+.update-banner {
+  position: fixed;
+  left: 1rem;
+  bottom: 1rem;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.85rem;
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  border: 1px solid var(--accent-fill);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  font-size: 0.85rem;
+}

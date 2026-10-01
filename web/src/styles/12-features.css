@@ -1,0 +1,274 @@
+/* Admin levels, message search, focus and motion, audit log. Part 12 of the stylesheet — imported in order from main.ts; the order is the cascade. */
+
+/* --- Admin levels: server admins and the global admin ------------------ */
+
+/* Buttons at the end of a members-list row (make admin / remove). */
+.member-row-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* Two-way switch between views inside one settings pane (Global admin:
+   All accounts / All servers). */
+.segmented {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  margin: 0.75rem 0 1rem;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.segmented button {
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  padding: 0.4rem 0.9rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font: inherit;
+}
+
+.segmented button.active {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.segmented button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.admin-server-card {
+  border-bottom: 1px solid var(--border);
+}
+
+.admin-server-card .session-row {
+  border-bottom: none;
+}
+
+.admin-server-meta {
+  font-size: 0.8rem;
+  margin-top: 0.15rem;
+}
+
+.admin-server-detail {
+  padding: 0 0 0.75rem 2.5rem;
+}
+
+@media (max-width: 768px) {
+  .member-row-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .session-row:has(.member-row-actions) {
+    flex-wrap: wrap;
+  }
+  .admin-server-detail {
+    padding-left: 0.5rem;
+  }
+}
+
+/* Friends without an open 1:1 chat, listed under the conversations. */
+.dm-section-label {
+  padding: 0.75rem 0.75rem 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+button.dm-friend-stub {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+button.dm-friend-stub .avatar {
+  opacity: 0.75;
+}
+
+/* --- Message search ---------------------------------------------------- */
+
+.search-panel {
+  position: relative;
+  width: min(640px, 94vw);
+  max-height: 82vh;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1.1rem;
+}
+
+.search-input {
+  width: 100%;
+  font-size: 1rem;
+  padding: 0.7rem 0.8rem;
+  margin-top: 1.4rem; /* room for the close button in the corner */
+}
+
+.search-scopes {
+  align-self: flex-start;
+  margin: 0;
+  flex-wrap: wrap;
+}
+
+.search-status {
+  margin: 0;
+  min-height: 1.2em;
+  font-size: 0.85rem;
+}
+
+.search-results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.search-result {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  grid-template-areas: "avatar head" "avatar body";
+  column-gap: 0.7rem;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: inherit;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  padding: 0.55rem 0.6rem;
+  cursor: pointer;
+  font: inherit;
+}
+
+.search-result:hover,
+.search-result:focus-visible {
+  background: var(--bg-elevated);
+  border-color: var(--border);
+}
+
+.search-result .avatar {
+  grid-area: avatar;
+  align-self: start;
+  width: 36px;
+  height: 36px;
+}
+
+.search-result-head {
+  grid-area: head;
+  display: flex;
+  gap: 0.6rem;
+  align-items: baseline;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+}
+
+.search-result-body {
+  grid-area: body;
+  overflow-wrap: anywhere;
+  color: var(--text);
+}
+
+.search-result-body mark {
+  background: var(--accent-soft);
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 2px;
+}
+
+.search-more {
+  align-self: center;
+}
+
+/* Shown while the list is a window into the past (after jumping to a
+   search result or an old reply). */
+.jump-to-present {
+  align-self: center;
+  margin: 0 0 0.4rem;
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--accent-fill);
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.85rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+
+.jump-to-present:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+/* --- Keyboard focus and motion ------------------------------------------ */
+
+/* One visible focus ring everywhere, for keyboard users only (mouse
+   clicks don't trigger :focus-visible). Individual components that draw
+   their own focus treatment override this. */
+:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 2px;
+}
+
+.guild-icon:focus-visible,
+.channel-item:focus-visible {
+  outline-offset: -2px;
+}
+
+/* People who ask their system for less motion get none of the app's
+   animations (ringing pulses, the speaking ring, highlights, smooth
+   scrolls) — state changes still happen, just instantly. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* --- Audit log ------------------------------------------------------------ */
+
+.audit-list {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+}
+
+.audit-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.audit-item time {
+  flex-shrink: 0;
+  font-size: 0.8rem;
+}
+
+@media (max-width: 768px) {
+  .audit-item {
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+}

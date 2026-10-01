@@ -1,0 +1,16 @@
+-- Backs GDPR self-service deletion/export (`DELETE /api/me`) and the
+-- instance owner's ability to remove another user's account
+-- (`POST /api/admin/users/:id/delete`) — see UX_FEEDBACK.md.
+--
+-- Deletion never actually removes the `users` row. Doing so would hit
+-- several NO ACTION foreign keys with no cascade (`guilds.owner_id`,
+-- `messages.author_id`, `messages.reply_to`, `invites.created_by`,
+-- `channels.created_by`) that would need individually resolving
+-- first, for no real privacy benefit over the alternative: the row is
+-- neutralized in place instead — username/display_name overwritten to
+-- an anonymous placeholder, login blocked via `deleted_at`, and (the
+-- user's own choice between "anonymize" and "erase") their message
+-- *content* either left in place under the anonymous name or actually
+-- deleted. A leftover inert row with no personal data left in it is
+-- not personal data.
+ALTER TABLE users ADD COLUMN deleted_at INTEGER;

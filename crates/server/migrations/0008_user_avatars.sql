@@ -1,0 +1,1 @@
+ALTER TABLE users ADD COLUMN avatar_file_id INTEGER REFERENCES files(id) ON DELETE SET NULL;
