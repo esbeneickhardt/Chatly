@@ -17,11 +17,22 @@ updates:
     directory: "/web"
     schedule:
       interval: "weekly"
+    ignore:
+      # typescript-eslint supports TypeScript < 6.1; TypeScript 7 breaks lint.
+      - dependency-name: "typescript"
+        versions: [">=6.1"]
+      # Follows the Node LTS that CI and the Dockerfile use (moved by hand).
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "docker"
     directory: "/docker"
     schedule:
       interval: "weekly"
+    ignore:
+      # The web build stage stays on a Node LTS; majors are moved by hand.
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
     directory: "/"

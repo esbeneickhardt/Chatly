@@ -31,7 +31,7 @@ def build(doc: str) -> dict:
         path, who, purpose = row.group(3), row.group(4), row.group(5)
         params = [
             {"name": p, "in": "path", "required": True, "schema": {"type": "string"}}
-            for p in re.findall(r":(\w+)", path)
+            for p in re.findall(r"\{(\w+)\}", path)
         ]
         for method in methods:
             op = {

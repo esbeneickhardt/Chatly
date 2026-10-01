@@ -49,63 +49,63 @@ pub fn router(max_upload_bytes: u64) -> Router<SharedState> {
         .route("/me/transfer-ownership", post(auth::transfer_ownership))
         .route("/sessions", get(auth::list_sessions))
         .route("/sessions/revoke-others", post(auth::revoke_other_sessions))
-        .route("/sessions/:id", delete(auth::revoke_session))
+        .route("/sessions/{id}", delete(auth::revoke_session))
         .route("/mfa/totp/enroll", post(mfa::enroll))
         .route("/mfa/totp/confirm", post(mfa::confirm))
         .route("/mfa/totp/disable", post(mfa::disable))
         .route("/mfa/verify", post(mfa::verify))
         .route("/invites", post(invites::create).get(invites::list))
-        .route("/invites/:id", delete(invites::revoke))
+        .route("/invites/{id}", delete(invites::revoke))
         .route("/invites/redeem", post(invites::redeem))
-        .route("/invites/:code/preview", get(invites::preview))
+        .route("/invites/{code}/preview", get(invites::preview))
         .route("/register-guest", post(invites::register_guest))
         .route("/guilds", get(guilds::list_mine).post(guilds::create))
-        .route("/guilds/:id", get(guilds::get).patch(guilds::update).delete(guilds::delete))
-        .route("/guilds/:id/invite-policy", patch(guilds::set_invite_policy))
-        .route("/guilds/:id/transfer-ownership", post(guilds::transfer_ownership))
-        .route("/guilds/:id/channels", get(guilds::list_channels).post(guilds::create_channel))
-        .route("/guilds/:id/channels/:channel_id", delete(guilds::delete_channel))
-        .route("/guilds/:id/members", get(guilds::list_members))
-        .route("/guilds/:id/members/:user_id", delete(guilds::remove_member))
-        .route("/guilds/:id/leave", post(guilds::leave))
-        .route("/guilds/:id/voice-state", get(guilds::voice_state))
-        .route("/guilds/:id/bots", get(bots::list).post(bots::create))
-        .route("/guilds/:id/bots/:bot_id/revoke", post(bots::revoke))
-        .route("/guilds/:id/roles", get(roles::list).post(roles::create))
-        .route("/guilds/:id/roles/:role_id", patch(roles::update).delete(roles::delete))
-        .route("/guilds/:id/members/:user_id/roles", get(roles::member_roles))
+        .route("/guilds/{id}", get(guilds::get).patch(guilds::update).delete(guilds::delete))
+        .route("/guilds/{id}/invite-policy", patch(guilds::set_invite_policy))
+        .route("/guilds/{id}/transfer-ownership", post(guilds::transfer_ownership))
+        .route("/guilds/{id}/channels", get(guilds::list_channels).post(guilds::create_channel))
+        .route("/guilds/{id}/channels/{channel_id}", delete(guilds::delete_channel))
+        .route("/guilds/{id}/members", get(guilds::list_members))
+        .route("/guilds/{id}/members/{user_id}", delete(guilds::remove_member))
+        .route("/guilds/{id}/leave", post(guilds::leave))
+        .route("/guilds/{id}/voice-state", get(guilds::voice_state))
+        .route("/guilds/{id}/bots", get(bots::list).post(bots::create))
+        .route("/guilds/{id}/bots/{bot_id}/revoke", post(bots::revoke))
+        .route("/guilds/{id}/roles", get(roles::list).post(roles::create))
+        .route("/guilds/{id}/roles/{role_id}", patch(roles::update).delete(roles::delete))
+        .route("/guilds/{id}/members/{user_id}/roles", get(roles::member_roles))
         .route(
-            "/guilds/:id/members/:user_id/roles/:role_id",
+            "/guilds/{id}/members/{user_id}/roles/{role_id}",
             post(roles::assign).delete(roles::unassign),
         )
         .route(
-            "/channels/:id/overwrites/roles/:role_id",
+            "/channels/{id}/overwrites/roles/{role_id}",
             post(roles::set_role_overwrite).delete(roles::clear_role_overwrite),
         )
         .route(
-            "/channels/:id/overwrites/members/:user_id",
+            "/channels/{id}/overwrites/members/{user_id}",
             post(roles::set_member_overwrite).delete(roles::clear_member_overwrite),
         )
-        .route("/channels/:id/messages", get(messages::list).post(messages::create))
-        .route("/messages/:id", patch(messages::edit).delete(messages::delete))
-        .route("/channels/:id/roster", get(channels::roster))
-        .route("/channels/:id/members", post(channels::add_member))
-        .route("/channels/:id/members/:user_id", delete(channels::remove_member))
-        .route("/messages/:id/reactions/:emoji", post(reactions::add).delete(reactions::remove))
+        .route("/channels/{id}/messages", get(messages::list).post(messages::create))
+        .route("/messages/{id}", patch(messages::edit).delete(messages::delete))
+        .route("/channels/{id}/roster", get(channels::roster))
+        .route("/channels/{id}/members", post(channels::add_member))
+        .route("/channels/{id}/members/{user_id}", delete(channels::remove_member))
+        .route("/messages/{id}/reactions/{emoji}", post(reactions::add).delete(reactions::remove))
         .route("/dms", get(dms::list).post(dms::open))
         .route("/dms/voice-state", get(dms::voice_state))
-        .route("/dms/:id/pin", post(dms::pin).delete(dms::unpin))
-        .route("/dms/:id/hide", post(dms::hide))
-        .route("/dms/:id/leave", post(dms::leave))
-        .route("/dms/:id/participants", post(dms::add_participant))
-        .route("/dms/:id/call/decline", post(dms::decline_call))
+        .route("/dms/{id}/pin", post(dms::pin).delete(dms::unpin))
+        .route("/dms/{id}/hide", post(dms::hide))
+        .route("/dms/{id}/leave", post(dms::leave))
+        .route("/dms/{id}/participants", post(dms::add_participant))
+        .route("/dms/{id}/call/decline", post(dms::decline_call))
         .route("/users/search", get(dms::search_users))
         .route("/search", get(search::search))
         .route("/friends", get(friends::list))
-        .route("/friends/:id", delete(friends::remove))
+        .route("/friends/{id}", delete(friends::remove))
         .route("/friends/requests", get(friends::list_requests).post(friends::create_request))
         .route(
-            "/friends/requests/:id",
+            "/friends/requests/{id}",
             post(friends::accept_request).delete(friends::remove_request),
         )
         .route("/friends/settings", patch(friends::update_settings))
@@ -113,18 +113,18 @@ pub fn router(max_upload_bytes: u64) -> Router<SharedState> {
             "/uploads",
             post(uploads::upload).layer(DefaultBodyLimit::max(max_upload_bytes as usize)),
         )
-        .route("/files/:id", get(uploads::download))
+        .route("/files/{id}", get(uploads::download))
         .route("/system/stats", get(system::stats))
         .route("/admin/users", get(admin::list_users))
-        .route("/admin/users/:id/delete", post(admin::delete_user))
+        .route("/admin/users/{id}/delete", post(admin::delete_user))
         .route("/admin/audit-log", get(audit::global_log))
-        .route("/guilds/:id/audit-log", get(audit::guild_log))
+        .route("/guilds/{id}/audit-log", get(audit::guild_log))
         .route("/admin/guilds", get(admin::list_guilds))
-        .route("/admin/guilds/:id", delete(admin::delete_guild))
-        .route("/admin/guilds/:id/members", get(admin::list_guild_members))
-        .route("/admin/guilds/:id/owner", post(admin::set_guild_owner))
+        .route("/admin/guilds/{id}", delete(admin::delete_guild))
+        .route("/admin/guilds/{id}/members", get(admin::list_guild_members))
+        .route("/admin/guilds/{id}/owner", post(admin::set_guild_owner))
         .route(
-            "/guilds/:id/admins/:user_id",
+            "/guilds/{id}/admins/{user_id}",
             axum::routing::put(server_admins::add).delete(server_admins::remove),
         )
         .route("/voice/ice-servers", get(voice::ice_servers))
@@ -159,7 +159,7 @@ mod tests {
     }
 
     /// `docs/openapi.json` is generated from `docs/api.md`; every router
-    /// path must be in it too (`:id` becomes `{id}`), so the machine-readable
+    /// path must be in it too (both write parameters as `{id}`), so the machine-readable
     /// spec can't fall behind either.
     #[test]
     fn openapi_lists_every_route() {

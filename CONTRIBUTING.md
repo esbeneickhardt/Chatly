@@ -6,7 +6,7 @@ knowing them up front saves a review round.
 ## Getting set up
 
 You need Rust (the exact toolchain is pinned in `rust-toolchain.toml`),
-Node 18.19+ (CI uses 20), and [`just`](https://github.com/casey/just).
+Node 22.12+ (CI and the Docker build use 24), and [`just`](https://github.com/casey/just).
 
 ```sh
 just web      # build the client into web/dist
