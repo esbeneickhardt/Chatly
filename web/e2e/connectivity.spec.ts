@@ -39,8 +39,15 @@ test.describe("calls the network cannot carry", () => {
     expect(alerts).toEqual([]);
 
     // …but nothing connects. After the wait, he is told, and the call ends.
-    await benPage.clock.fastForward(25_000);
-    await expect.poll(() => alerts.length).toBe(1);
+    // The give-up timer only starts once the call is set up, which on a slow
+    // machine (CI) can be after a single jump of the clock, so keep moving
+    // the clock on until the alert comes.
+    await expect
+      .poll(async () => {
+        await benPage.clock.fastForward(5_000);
+        return alerts.length;
+      })
+      .toBe(1);
     expect(alerts[0]).toContain("Couldn't connect the call");
     expect(alerts[0]).toContain("Wi-Fi and mobile data");
     await expect(benPage.locator(".end-call-btn")).toBeHidden();
