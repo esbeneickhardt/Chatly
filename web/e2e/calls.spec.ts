@@ -329,7 +329,7 @@ test.describe("calls", () => {
     // Ann adds Cy through the UI: the 1:1 chat stays, the call moves to a new group.
     await annPage.locator("[title='Conversation options']").click();
     await annPage.getByText("Add people").click();
-    await annPage.locator("input").last().fill("cy_call");
+    await annPage.locator("input").last().fill(cy.username);
     await annPage.locator(".user-search-row", { hasText: "Cy_call" }).first().click();
     await expect(annPage.getByText("Added")).toBeVisible();
 
@@ -378,7 +378,7 @@ test.describe("calls", () => {
     await expect(benPage.locator(".incoming-call-banner")).toBeVisible();
     await annPage.locator("[title='Conversation options']").click();
     await annPage.getByText("Add people").click();
-    await annPage.locator("input").last().fill("cy_ring");
+    await annPage.locator("input").last().fill(cy.username);
     await annPage.locator(".user-search-row", { hasText: "Cy_ring" }).first().click();
     await expect(annPage.getByText("Added")).toBeVisible();
 

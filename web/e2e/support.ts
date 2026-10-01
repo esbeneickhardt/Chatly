@@ -1,7 +1,7 @@
 // Shared helpers for the end-to-end tests: seeding accounts through the
 // real API, and opening a browser signed in as one of them.
 
-import { expect, type Browser, type BrowserContext, type Page } from "@playwright/test";
+import { expect, test, type Browser, type BrowserContext, type Page } from "@playwright/test";
 
 const BASE = `http://127.0.0.1:${Number(process.env.E2E_PORT ?? 8171)}`;
 export const PASSWORD = "correct-horse-battery";
@@ -79,11 +79,18 @@ export async function owner(): Promise<{ account: Account; guildId: string; chan
 export const OWNER_ENV_NAME = OWNER_ENV;
 
 /** Registers `username` through an invite from `inviter` (default: the
- * global admin), landing them in the inviter's channel's server. */
+ * global admin), landing them in the inviter's channel's server.
+ *
+ * A retried test runs against the same server, where its first attempt
+ * already registered these names, so a retry registers `<name>_r<n>`
+ * instead (the display name stays the same). Use `account.username`, not
+ * the literal, wherever a test types or sends a username. */
 export async function newUser(
-  username: string,
+  requested: string,
   inviter?: { account: Account; channelId: string },
 ): Promise<Account> {
+  const retry = test.info().retry;
+  const username = retry ? `${requested}_r${retry}` : requested;
   const admin = await owner();
   const base = inviter ?? { account: admin.account, channelId: admin.channelId };
   const invite = await call<{ code: string }>(
@@ -95,7 +102,7 @@ export async function newUser(
   expect(invite.status).toBe(200);
   const res = await call<{ user: { id: string } }>("POST", "/api/register", {
     username,
-    display_name: username[0].toUpperCase() + username.slice(1),
+    display_name: requested[0].toUpperCase() + requested.slice(1),
     password: PASSWORD,
     invite_code: invite.body.code,
   });

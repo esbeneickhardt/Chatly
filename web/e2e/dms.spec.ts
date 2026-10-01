@@ -38,7 +38,7 @@ test.describe("direct messages", () => {
 
     await page.locator("[title='Conversation options']").click();
     await page.getByText("Add people").click();
-    await page.locator("input").last().fill("cy_grp");
+    await page.locator("input").last().fill(cy.username);
     await page.locator(".user-search-row", { hasText: "Cy_grp" }).first().click();
     await expect(page.getByText("Added")).toBeVisible();
     await page.keyboard.press("Escape");
