@@ -60,8 +60,15 @@ test.describe("installable app and notifications", () => {
       };
     });
     const page = await context.newPage();
+    // Live events only reach the page once its gateway has said READY. The
+    // sidebar is drawn before the gateway even connects, so on a slow machine
+    // (CI) the message could otherwise be sent before the page is listening.
+    const ready = page
+      .waitForEvent("websocket", (ws) => ws.url().endsWith("/gateway"))
+      .then((ws) => ws.waitForEvent("framereceived", (frame) => String(frame.payload).includes('"READY"')));
     await page.goto("/");
     await expect(page.locator(".guild-rail")).toBeVisible();
+    await ready;
     await expect
       .poll(() => page.evaluate(async () => Boolean(await navigator.serviceWorker.getRegistration())))
       .toBe(true);
