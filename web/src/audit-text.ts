@@ -59,6 +59,8 @@ export function describeAudit(entry: AuditEntry): string {
       return `${who} revoked the bot ${target}'s token`;
     case "global.user_delete":
       return `${who} deleted the account ${target}`;
+    case "global.user_password":
+      return `${who} reset ${target}'s password`;
     case "global.guild_delete":
       return `${who} deleted the server ${target}`;
     case "global.guild_owner":

@@ -1,6 +1,7 @@
 //! Global admin vs. server admin: who can do what, and what nobody can.
 
 use super::*;
+use crate::test_support::PASSWORD;
 
 // --- Global admin vs. server admin ----------------------------------------
 
@@ -64,6 +65,34 @@ async fn global_admin_can_reassign_and_delete_servers() {
     assert_eq!(owner.delete(&format!("/api/admin/guilds/{guild}")).await.0, StatusCode::NO_CONTENT);
     let (_, all) = owner.get("/api/admin/guilds").await;
     assert!(!ids(&all).contains(&guild));
+}
+
+#[tokio::test]
+async fn global_admin_can_reset_a_password() {
+    let app = TestApp::new().await;
+    let (mut owner, _guild, channel) = app.owner("root").await;
+    let mut member = app.member(&mut owner, &channel, "member").await;
+    let path = format!("/api/admin/users/{}/password", member.user_id);
+
+    assert_eq!(member.post(&path, json!({})).await.0, StatusCode::FORBIDDEN);
+    let (status, body) =
+        owner.post(&format!("/api/admin/users/{}/password", owner.user_id), json!({})).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+
+    let (status, body) = owner.post(&path, json!({})).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let new_password = body["password"].as_str().unwrap().to_string();
+    assert_eq!(new_password.len(), 19);
+
+    // Signed out everywhere; the old password no longer works, the new one does.
+    assert_eq!(member.get("/api/me").await.0, StatusCode::UNAUTHORIZED);
+    let mut fresh = app.client();
+    let login = |password: &str| json!({ "username": "member", "password": password });
+    assert_eq!(fresh.post("/api/login", login(PASSWORD)).await.0, StatusCode::UNAUTHORIZED);
+    assert_eq!(fresh.post("/api/login", login(&new_password)).await.0, StatusCode::OK);
+
+    let (_, log) = owner.get("/api/admin/audit-log").await;
+    assert_eq!(log[0]["action"], "global.user_password", "{log}");
 }
 
 #[tokio::test]

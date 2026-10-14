@@ -8,6 +8,8 @@ finer-grained, per-request history of the UI work lives in
 ## [Unreleased]
 
 ### Added
+- **Reset password** for the global admin (Global admin → All accounts): a new
+  generated password, shown once, and the account is signed out everywhere.
 - **Settings → Devices → Test my connection**: says in words whether this device
   can make a call (microphone, secure page, voice relay, UDP/TCP reachability).
 - **Calls that never connect are ended with a message** after 20 seconds instead

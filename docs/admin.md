@@ -159,7 +159,11 @@ regardless.
 
 ## Recovery
 
-If someone is locked out, there are commands for it (run inside the
+If someone forgot their password, the global admin can give them a new one
+in the web client: **Global admin → All accounts → Reset password**. It
+shows the new password once and signs the account out everywhere.
+
+For anything else, there are commands (run inside the
 container the same way as `backup`; they act on `DATA_DIR` directly):
 
 ```sh

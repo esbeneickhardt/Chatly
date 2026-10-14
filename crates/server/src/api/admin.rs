@@ -22,6 +22,7 @@ use protocol::Id;
 use super::audit;
 use super::current_user::CurrentUser;
 use super::error::{AppError, AppResult};
+use crate::auth::password;
 use crate::models::{AdminGuildSummary, DeleteAccountOutcome, Guild, User};
 use crate::state::SharedState;
 
@@ -99,6 +100,74 @@ pub async fn delete_user(
             ))
         }
     }
+}
+
+#[derive(serde::Serialize)]
+pub struct ResetPasswordResponse {
+    pub password: String,
+}
+
+/// Unambiguous characters only (no 0/O, 1/l/I), since the admin reads
+/// the result out or retypes it.
+const PASSWORD_CHARS: &[u8] = b"abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+/// `xxxx-xxxx-xxxx-xxxx`: 16 characters from 55, ≈92 bits.
+fn generate_password() -> String {
+    use rand::Rng;
+    let mut rng = rand::rngs::OsRng;
+    (0..4)
+        .map(|_| {
+            (0..4)
+                .map(|_| PASSWORD_CHARS[rng.gen_range(0..PASSWORD_CHARS.len())] as char)
+                .collect::<String>()
+        })
+        .collect::<Vec<_>>()
+        .join("-")
+}
+
+/// Gives someone who forgot their password a new one, generated here and
+/// returned once for the admin to pass on, and signs the account out
+/// everywhere — the web equivalent of `chatly admin reset-password`.
+/// Two-factor authentication stays as it is. Not for the instance owner's
+/// own account: that's Settings → Account (or the CLI when locked out).
+pub async fn reset_user_password(
+    State(state): State<SharedState>,
+    current: CurrentUser,
+    Path(id): Path<String>,
+) -> AppResult<Json<ResetPasswordResponse>> {
+    require_instance_owner(&current)?;
+    let target_id: Id =
+        id.parse().map_err(|_| AppError::bad_request("invalid_id", "invalid user id"))?;
+    let target = state
+        .storage
+        .get_user_by_id(target_id)
+        .await?
+        .ok_or_else(|| AppError::not_found("not_found", "no such user"))?;
+    if target.is_owner {
+        return Err(AppError::bad_request(
+            "is_instance_owner",
+            "change your own password in Settings → Account",
+        ));
+    }
+    if target.is_bot {
+        return Err(AppError::bad_request("is_bot", "bots have no password"));
+    }
+
+    let new_password = generate_password();
+    let hash = password::hash(&new_password).map_err(AppError::internal)?;
+    state.storage.set_user_password_hash(target_id, hash).await?;
+    state.storage.delete_all_sessions_for_user(target_id).await?;
+    audit::record(
+        &state,
+        None,
+        &current.user,
+        "global.user_password",
+        Some(target_id),
+        Some(target.display_name.clone()),
+        None,
+    )
+    .await;
+    Ok(Json(ResetPasswordResponse { password: new_password }))
 }
 
 /// Every server on the instance — whether or not the global admin has

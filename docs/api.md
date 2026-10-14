@@ -187,8 +187,9 @@ own admins (see above), whose authority stops at their server.
 |---|---|---|---|
 | GET | `/admin/users` | global admin | Every account |
 | POST | `/admin/users/{id}/delete` | global admin | Delete an account and everything it owns |
+| POST | `/admin/users/{id}/password` | global admin | Give an account a new, generated password (returned once as `{"password"}`) and sign it out everywhere; two-factor stays on |
 | GET | `/admin/guilds` | global admin | Every server on the deployment, with owner and counts |
 | DELETE | `/admin/guilds/{id}` | global admin | Delete a server |
 | GET | `/admin/guilds/{id}/members` | global admin | A server's members |
 | POST | `/admin/guilds/{id}/owner` | global admin | Reassign a server to another of its members |
-| GET | `/admin/audit-log` | global admin | What the global admin has done to the deployment (deleting accounts or servers, reassigning owners), newest first |
+| GET | `/admin/audit-log` | global admin | What the global admin has done to the deployment (deleting accounts or servers, resetting passwords, reassigning owners), newest first |
