@@ -61,6 +61,31 @@
   padding: 0 0 0.75rem 2.5rem;
 }
 
+/* All accounts: a long name gives way to the buttons instead of pushing them. */
+.admin-account-identity {
+  min-width: 0;
+}
+
+.admin-account-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A reset password, shown once under its account's row. */
+.admin-new-password {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.admin-new-password .secret-code {
+  margin: 0;
+  font-size: 0.95rem;
+  letter-spacing: 0.03em;
+}
+
 @media (max-width: 768px) {
   .member-row-actions {
     width: 100%;
