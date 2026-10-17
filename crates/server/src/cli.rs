@@ -95,10 +95,14 @@ pub struct BackupReport {
     pub files: usize,
 }
 
+/// Keys kept beside the database that a backup carries along.
+const KEY_FILES: [&str; 2] = ["secret_key", "vapid_key"];
+
 /// Snapshots `data_dir` into `out_dir`: `chat.db` (a transactionally
 /// consistent copy made with `VACUUM INTO`, safe while the server runs),
-/// `files/` (attachments), and `secret_key` (if the key wasn't supplied
-/// through `SECRET_KEY`). `out_dir` must be empty or not exist.
+/// `files/` (attachments), `secret_key` (if the key wasn't supplied
+/// through `SECRET_KEY`) and `vapid_key` (Web Push; without it every
+/// device's notifications stop). `out_dir` must be empty or not exist.
 pub fn backup(data_dir: &Path, out_dir: &Path) -> anyhow::Result<BackupReport> {
     let db_path = data_dir.join("chat.db");
     if !db_path.exists() {
@@ -118,9 +122,10 @@ pub fn backup(data_dir: &Path, out_dir: &Path) -> anyhow::Result<BackupReport> {
         conn.query_row("SELECT COALESCE(MAX(version), 0) FROM schema_version", [], |r| r.get(0))?;
 
     let files = copy_dir(&data_dir.join("files"), &out_dir.join("files"))?;
-    let key = data_dir.join("secret_key");
-    if key.exists() {
-        std::fs::copy(&key, out_dir.join("secret_key"))?;
+    for key in KEY_FILES {
+        if data_dir.join(key).exists() {
+            std::fs::copy(data_dir.join(key), out_dir.join(key))?;
+        }
     }
     Ok(BackupReport { schema_version, files })
 }
@@ -173,9 +178,10 @@ pub fn restore(backup_dir: &Path, data_dir: &Path, force: bool) -> anyhow::Resul
     }
     std::fs::rename(&staged, &live)?;
     copy_dir(&backup_dir.join("files"), &data_dir.join("files"))?;
-    let key = backup_dir.join("secret_key");
-    if key.exists() {
-        std::fs::copy(&key, data_dir.join("secret_key"))?;
+    for key in KEY_FILES {
+        if backup_dir.join(key).exists() {
+            std::fs::copy(backup_dir.join(key), data_dir.join(key))?;
+        }
     }
     Ok(())
 }
@@ -291,6 +297,7 @@ mod tests {
             .unwrap();
         std::fs::write(dir.join("files").join("upload.bin"), b"attachment").unwrap();
         std::fs::write(dir.join("secret_key"), b"k").unwrap();
+        std::fs::write(dir.join("vapid_key"), b"v").unwrap();
         id
     }
 
@@ -312,6 +319,7 @@ mod tests {
         assert!(storage.get_user_by_username("ann").await.unwrap().is_some());
         assert_eq!(std::fs::read(fresh.path().join("files/upload.bin")).unwrap(), b"attachment");
         assert_eq!(std::fs::read(fresh.path().join("secret_key")).unwrap(), b"k");
+        assert_eq!(std::fs::read(fresh.path().join("vapid_key")).unwrap(), b"v");
     }
 
     #[tokio::test]

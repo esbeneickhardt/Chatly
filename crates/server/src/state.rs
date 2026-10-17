@@ -4,6 +4,7 @@ use std::time::Duration;
 use crate::auth::preauth::PreAuthStore;
 use crate::config::Config;
 use crate::gateway::GatewayHub;
+use crate::push::PushService;
 use crate::ratelimit::RateLimiter;
 use crate::secret_key::SecretKey;
 use crate::snowflake::SnowflakeGenerator;
@@ -47,6 +48,7 @@ pub struct AppState {
     pub gateway: Arc<GatewayHub>,
     pub voice: VoiceHub,
     pub stats: Arc<StatsMonitor>,
+    pub push: PushService,
 }
 
 pub type SharedState = Arc<AppState>;

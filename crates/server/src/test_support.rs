@@ -56,8 +56,14 @@ impl TestApp {
         let secret_key = SecretKey::load_or_create(dir.path()).expect("secret key");
         let gateway = Arc::new(GatewayHub::new());
         let voice = voice::spawn(0, None, gateway.clone()).expect("voice");
+        let storage: Arc<dyn crate::storage::Storage> = Arc::new(storage);
+        let push = crate::push::PushService::new(
+            crate::push::VapidKey::load_or_create(dir.path()).expect("vapid key"),
+            &config.public_url,
+            storage.clone(),
+        );
         let state: SharedState = Arc::new(AppState {
-            storage: Arc::new(storage),
+            storage,
             snowflake: SnowflakeGenerator::new(0),
             secret_key,
             preauth: auth::preauth::PreAuthStore::new(),
@@ -66,6 +72,7 @@ impl TestApp {
             gateway,
             voice,
             stats: sysstats::spawn(),
+            push,
         });
         let router = Router::new()
             .nest("/api", api::router(config.max_upload_bytes).layer(from_fn(csrf::require_header)))

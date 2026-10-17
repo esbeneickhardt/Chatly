@@ -35,6 +35,7 @@ Frame: `{ "op": <int>, "d": <payload>, "s": <seq | null>, "t": <event | null> }`
 | 9 | InvalidSession | S→C | Reply to Resume |
 | 10 | Hello | S→C | Sent on connect: `{heartbeat_interval_ms}` (30 000) |
 | 11 | HeartbeatAck | S→C | Reply to Heartbeat |
+| 12 | Activity | C→S | `{active: bool}`: whether someone is using this page (in front, focused, touched in the last 3 minutes). Sent on connect and on every change; a user with any active connection gets no Web Push |
 
 The server closes a connection that misses two heartbeat intervals.
 There is no event replay: after any reconnect the client gets a fresh

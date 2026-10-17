@@ -4,6 +4,7 @@ import { createCommands } from "./chat/commands";
 
 import { installAudioUnlock, playVoiceJoinSound, playVoiceLeaveSound } from "../notification-sound";
 import { renderSystemStatusButton } from "../system-status";
+import { syncPushSubscription, takeLaunchTarget } from "../notifications";
 
 import { createVoiceControls } from "./chat/voice-controls";
 import { createPanes } from "./chat/panes";
@@ -430,6 +431,7 @@ export async function renderChat(
     state,
     user,
     switchToHome: (...args) => switchToHome(...args),
+    switchGuild: (...args) => switchGuild(...args),
   });
   const {
     callDeclined,
@@ -467,6 +469,8 @@ export async function renderChat(
   });
   const { enterDefaultView, mentionUsernamesFor, refreshDmList, switchGuild, switchToHome } = navigation;
 
+  const launchTarget = takeLaunchTarget();
+
   // An invite's destination (see `main.ts`'s boot/registration flow)
   // overrides the usual "first guild, or Home" default for this one
   // initial render — falls back to that default if the destination
@@ -498,6 +502,10 @@ export async function renderChat(
     await switchToHome();
     const targetDm = state.dms.find((d) => d.channel.id === initialDestination.channelId);
     if (targetDm) selectDm(targetDm);
+  } else if (launchTarget) {
+    // Started by tapping a notification while no Chatly window was open.
+    await (launchTarget.guildId ? enterDefaultView() : switchToHome());
+    await directMessages.openFromNotification(launchTarget);
   } else {
     await enterDefaultView();
   }
@@ -551,4 +559,5 @@ export async function renderChat(
   new CommandPalette(source);
 
   gateway.connect();
+  syncPushSubscription();
 }

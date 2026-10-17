@@ -32,6 +32,7 @@ pub const MIGRATIONS: &[(i64, &str)] = &[
     (23, include_str!("../../migrations/0023_server_level_admins.sql")),
     (24, include_str!("../../migrations/0024_message_search.sql")),
     (25, include_str!("../../migrations/0025_audit_log.sql")),
+    (26, include_str!("../../migrations/0026_push_subscriptions.sql")),
 ];
 
 /// A migration starting with this marker manages its own transaction

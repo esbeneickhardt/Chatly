@@ -565,3 +565,12 @@ pub struct NewAuditEntry {
     pub target_name: Option<String>,
     pub detail: Option<String>,
 }
+
+/// A browser's Web Push subscription: where to send (`endpoint`, a push
+/// service URL) and its keys for encrypting what is sent (base64url).
+#[derive(Debug, Clone)]
+pub struct PushSubscription {
+    pub endpoint: String,
+    pub p256dh: String,
+    pub auth: String,
+}

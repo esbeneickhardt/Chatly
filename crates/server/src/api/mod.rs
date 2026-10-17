@@ -15,6 +15,7 @@ mod invites;
 mod messages;
 mod mfa;
 pub(crate) mod permissions;
+mod push;
 mod reactions;
 mod roles;
 mod search;
@@ -129,6 +130,9 @@ pub fn router(max_upload_bytes: u64) -> Router<SharedState> {
             axum::routing::put(server_admins::add).delete(server_admins::remove),
         )
         .route("/voice/ice-servers", get(voice::ice_servers))
+        .route("/push/key", get(push::public_key))
+        .route("/push/subscriptions", post(push::subscribe))
+        .route("/push/subscriptions/remove", post(push::unsubscribe))
         .fallback(not_found)
 }
 

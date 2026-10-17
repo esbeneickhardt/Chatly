@@ -7,6 +7,7 @@ mod csrf;
 mod gateway;
 mod healthz;
 mod models;
+mod push;
 mod qr;
 mod ratelimit;
 mod request_log;
@@ -84,8 +85,15 @@ async fn main() -> anyhow::Result<()> {
     let voice = voice::spawn(config.voice_port, config.voice_public_ip, gateway.clone())?;
     tracing::info!(port = config.voice_port, "voice SFU listening (UDP)");
 
+    let storage: Arc<dyn Storage> = Arc::new(storage);
+    let push = push::PushService::new(
+        push::VapidKey::load_or_create(&config.data_dir)?,
+        &config.public_url,
+        storage.clone(),
+    );
+
     let shared_state = Arc::new(AppState {
-        storage: Arc::new(storage),
+        storage,
         snowflake: SnowflakeGenerator::new(0),
         secret_key,
         preauth: auth::preauth::PreAuthStore::new(),
@@ -94,6 +102,7 @@ async fn main() -> anyhow::Result<()> {
         gateway,
         voice,
         stats: sysstats::spawn(),
+        push,
     });
 
     let stateful = Router::new()

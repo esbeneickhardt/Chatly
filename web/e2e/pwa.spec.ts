@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { befriend, call, newUser, closeOpenContexts } from "./support";
+import { befriend, call, contextFor, goHome, newUser, openAs, closeOpenContexts } from "./support";
 
 test.afterEach(closeOpenContexts);
 
@@ -85,5 +85,38 @@ test.describe("installable app and notifications", () => {
           data: { channelId: dm.body.channel.id },
         },
       ]);
+  });
+
+  test("tapping a call notification with Chatly closed shows the call, and Answer joins it", async ({
+    browser,
+  }) => {
+    const ann = await newUser("ann_push");
+    const ben = await newUser("ben_push");
+    await befriend(ann, ben);
+    const dm = await call<{ channel: { id: string } }>(
+      "POST",
+      "/api/dms",
+      { usernames: [ben.username] },
+      ann,
+    );
+    const dmId = dm.body.channel.id;
+
+    const annPage = await openAs(browser, ann);
+    await goHome(annPage);
+    await annPage.locator(".dm-item", { hasText: "Ben_push" }).first().click();
+    await annPage.locator("[title='Call']").first().click();
+    await expect(annPage.locator(".dm-call-status")).toContainText("Ringing");
+
+    // What the service worker opens when a notification is tapped and no
+    // Chatly window is open (see sw.js).
+    const benPage = await (await contextFor(browser, ben)).newPage();
+    await benPage.goto(`/?open=${dmId}&call=1`);
+    await expect(benPage.locator(".incoming-call-banner")).toBeVisible();
+    await expect(benPage.locator(".dm-item.active")).toContainText("Ann_push");
+    expect(new URL(benPage.url()).search).toBe("");
+
+    await benPage.goto(`/?open=${dmId}&answer=1`);
+    await expect(annPage.locator(".dm-call-participants")).toContainText("Ben_push");
+    await expect(annPage.locator(".dm-call-participant.ringing")).toHaveCount(0);
   });
 });

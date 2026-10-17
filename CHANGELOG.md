@@ -8,6 +8,12 @@ finer-grained, per-request history of the UI work lives in
 ## [Unreleased]
 
 ### Added
+- **Notifications with Chatly closed** (Web Push): calls, direct messages and
+  mentions reach your phone or computer even when no Chatly window is open, as
+  long as you aren't using Chatly elsewhere right then. Same switch as before
+  (Settings → Devices). On iPhone, add Chatly to the Home Screen first. A call
+  notification has Answer and Decline on Android; tapping it opens the call
+  ringing. The data folder gains `vapid_key`, which backups now include.
 - **Reset password** for the global admin (Global admin → All accounts): a new
   generated password, shown once, and the account is signed out everywhere.
 - **Settings → Devices → Test my connection**: says in words whether this device

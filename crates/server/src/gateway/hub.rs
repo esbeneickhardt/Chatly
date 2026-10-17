@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
 
 use protocol::Id;
@@ -174,6 +174,9 @@ pub struct GatewayHub {
     /// they should only show as offline once *all* of them are gone,
     /// not the first one that closes.
     online_counts: Mutex<HashMap<Id, u32>>,
+    /// The connections whose page someone is looking at and using right now
+    /// (gateway op 12), per user. While any is, Web Push leaves them alone.
+    active: Mutex<HashMap<Id, HashSet<u64>>>,
 }
 
 const CHANNEL_CAPACITY: usize = 256;
@@ -184,6 +187,7 @@ impl GatewayHub {
             channels: Mutex::new(HashMap::new()),
             voice_presence: Mutex::new(HashMap::new()),
             online_counts: Mutex::new(HashMap::new()),
+            active: Mutex::new(HashMap::new()),
         }
     }
 
@@ -272,6 +276,25 @@ impl GatewayHub {
             }
             None => false,
         }
+    }
+
+    /// Records whether connection `conn` of `user_id` is in active use. A
+    /// closing connection must report `false`.
+    pub fn set_active(&self, user_id: Id, conn: u64, active: bool) {
+        let mut map = crate::sync::lock(&self.active);
+        if active {
+            map.entry(user_id).or_default().insert(conn);
+        } else if let Some(conns) = map.get_mut(&user_id) {
+            conns.remove(&conn);
+            if conns.is_empty() {
+                map.remove(&user_id);
+            }
+        }
+    }
+
+    /// Whether `user_id` is using Chatly on any device right now.
+    pub fn is_active(&self, user_id: Id) -> bool {
+        crate::sync::lock(&self.active).contains_key(&user_id)
     }
 
     /// Every user id with at least one live gateway connection right

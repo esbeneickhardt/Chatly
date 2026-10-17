@@ -84,4 +84,13 @@ describe("showing a notification", () => {
     await notify(request);
     expect(ctor).toHaveBeenCalledWith("Ana", expect.objectContaining({ body: "hi", tag: "c1" }));
   });
+
+  it("leaves it to Web Push when this browser is subscribed", async () => {
+    const { ctor } = stubNotification("granted");
+    await setNotificationsEnabled(true);
+    localStorage.setItem("chatly:push", "1");
+    hidden(true);
+    await notify(request);
+    expect(ctor).not.toHaveBeenCalled();
+  });
 });

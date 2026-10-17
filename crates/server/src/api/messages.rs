@@ -173,6 +173,7 @@ pub async fn create(
     // committed, per PLAN.md 2.3: "every mutating REST call publishes
     // its event after the DB transaction commits."
     state.gateway.publish(broadcast_room(&channel), DispatchEvent::MessageCreate(message.clone()));
+    crate::push::message_created(&state, &channel, &message);
 
     Ok(Json(message))
 }

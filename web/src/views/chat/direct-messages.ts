@@ -1,7 +1,7 @@
 // Direct messages: the DM call (ringing, stage, incoming card), DM labels and avatars, selecting a conversation, opening a message, and the entry points into search.
 
-import { type DmSummary, type Message, type User } from "../../api";
-import { onNotificationClick } from "../../notifications";
+import { type DmSummary, type Guild, type Message, type User } from "../../api";
+import { type NotificationTarget, onNotificationClick } from "../../notifications";
 import { renderAvatarEl } from "../../ui";
 import { createDmCall } from "../dm-call";
 import { type SearchScopeOption, openSearchPanel } from "../search";
@@ -28,6 +28,7 @@ export interface createDirectMessagesContext {
   state: ChatState;
   user: User;
   switchToHome: () => Promise<void>;
+  switchGuild: (guild: Guild) => Promise<void>;
 }
 
 export function createDirectMessages(ctx: createDirectMessagesContext) {
@@ -225,17 +226,36 @@ export function createDirectMessages(ctx: createDirectMessagesContext) {
   }
 
   /** Brings the app to a conversation — what clicking a notification does. */
-  async function openConversation(channelId: string): Promise<void> {
+  async function openConversation(channelId: string, guildId?: string): Promise<void> {
     const dm = state.dms.find((d) => d.channel.id === channelId);
     if (dm) {
       if (!state.onHome) await switchToHome();
       selectDm(dm);
       return;
     }
+    const guild = guildId ? state.guilds.find((g) => g.id === guildId) : undefined;
+    if (guild && (state.onHome || state.activeGuild?.id !== guild.id)) await ctx.switchGuild(guild);
     const channel = state.currentChannels.find((c) => c.id === channelId);
     if (channel) selectChannel(channel);
   }
-  onNotificationClick((channelId) => void openConversation(channelId));
+
+  /** A tapped notification: open its conversation, and for a call still in
+   * progress either join it (Answer) or show it ringing. */
+  async function openFromNotification(target: NotificationTarget): Promise<void> {
+    await openConversation(target.channelId, target.guildId);
+    if (!target.answer && !target.call) return;
+    const dm = state.dms.find((d) => d.channel.id === target.channelId);
+    const onCall = [...(voiceParticipants.get(target.channelId) ?? [])].filter((id) => id !== user.id);
+    if (!dm || onCall.length === 0 || voiceClient.currentChannelId === target.channelId) return;
+    if (!target.answer) {
+      showIncomingCall(dm, onCall[0]);
+      return;
+    }
+    if (!(await confirmSwitchCall(dm.channel.id))) return;
+    dismissIncomingCallFor(dm.channel.id);
+    void voiceClient.join(dm.channel.id);
+  }
+  onNotificationClick((target) => void openFromNotification(target));
 
   function openSearch(): void {
     const scopes: SearchScopeOption[] = [];
@@ -269,6 +289,7 @@ export function createDirectMessages(ctx: createDirectMessagesContext) {
     groupMemberCountLabel,
     isGroupDm,
     isSelfDm,
+    openFromNotification,
     openSearch,
     renderDmCallStage,
     ringTimedOut,

@@ -176,6 +176,9 @@ is in is re-checked against your permissions.
 | GET | `/files/{id}` | access to where it was posted | Download; supports `Range` |
 | GET | `/system/stats` | session | This app's own network throughput |
 | GET | `/voice/ice-servers` | session | Short-lived STUN/TURN credentials for a call |
+| GET | `/push/key` | session | The server's Web Push (VAPID) public key, as `{"public_key"}` |
+| POST | `/push/subscriptions` | session | Register this browser for push (`PushSubscription.toJSON()`: `{"endpoint","keys":{"p256dh","auth"}}`); only known push services are accepted, and it lasts as long as this session |
+| POST | `/push/subscriptions/remove` | session | Stop push to a browser: `{"endpoint"}` |
 
 ## Global admin
 

@@ -2723,6 +2723,78 @@
         }
       }
     },
+    "/push/key": {
+      "get": {
+        "summary": "The server's Web Push (VAPID) public key, as `{\"public_key\"}`",
+        "description": "Who can call it: session.",
+        "tags": [
+          "Files, system, voice"
+        ],
+        "responses": {
+          "2XX": {
+            "description": "Success"
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/push/subscriptions": {
+      "post": {
+        "summary": "Register this browser for push (`PushSubscription.toJSON()`: `{\"endpoint\",\"keys\":{\"p256dh\",\"auth\"}}`); only known push services are accepted, and it lasts as long as this session",
+        "description": "Who can call it: session.",
+        "tags": [
+          "Files, system, voice"
+        ],
+        "responses": {
+          "2XX": {
+            "description": "Success"
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/push/subscriptions/remove": {
+      "post": {
+        "summary": "Stop push to a browser: `{\"endpoint\"}`",
+        "description": "Who can call it: session.",
+        "tags": [
+          "Files, system, voice"
+        ],
+        "responses": {
+          "2XX": {
+            "description": "Success"
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/register": {
       "post": {
         "summary": "First-ever account becomes the global admin; everyone else needs an invite code",

@@ -1,7 +1,12 @@
 // Settings → Devices: audio, video and notification preferences.
 
 import { loadAudioPrefs, saveAudioPrefs } from "../../audio-prefs";
-import { notificationsEnabled, notificationsSupported, setNotificationsEnabled } from "../../notifications";
+import {
+  needsHomeScreen,
+  notificationsEnabled,
+  notificationsSupported,
+  setNotificationsEnabled,
+} from "../../notifications";
 import { type VoiceClient } from "../../voice";
 import { renderConnectionTest } from "./connection-test";
 import { field, levelMeter, section } from "./widgets";
@@ -70,7 +75,7 @@ export function renderDevicesSection(container: HTMLElement, voiceClient: VoiceC
     saveAudioPrefs(prefs);
   });
 
-  // Notifications while the app is in the background (see notifications.ts).
+  // Notifications for calls, DMs and mentions, pushed even when closed (see notifications.ts).
   const desktopRow = document.createElement("label");
   desktopRow.className = "checkbox-row";
   const desktopToggle = document.createElement("input");
@@ -78,7 +83,7 @@ export function renderDevicesSection(container: HTMLElement, voiceClient: VoiceC
   desktopToggle.checked = notificationsEnabled();
   desktopRow.append(
     desktopToggle,
-    document.createTextNode("Show notifications when the app is in the background"),
+    document.createTextNode("Notify me of calls, direct messages and mentions"),
   );
   const desktopHint = document.createElement("p");
   desktopHint.className = "muted-text";
@@ -86,7 +91,9 @@ export function renderDevicesSection(container: HTMLElement, voiceClient: VoiceC
   desktopHint.setAttribute("aria-live", "polite");
   if (!notificationsSupported()) {
     desktopToggle.disabled = true;
-    desktopHint.textContent = "This browser doesn't support notifications.";
+    desktopHint.textContent = needsHomeScreen()
+      ? "Add Chatly to the Home Screen first."
+      : "This browser doesn't support notifications.";
     desktopHint.hidden = false;
   }
   desktopToggle.addEventListener("change", async () => {

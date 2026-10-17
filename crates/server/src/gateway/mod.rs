@@ -235,6 +235,11 @@ async fn handle_socket(mut socket: WebSocket, state: SharedState, user: User) {
                                 handle_voice_state_update(&state, user.id, conn_id, &text)
                                     .await
                             }
+                            Some(12) => {
+                                if let Some(active) = activity_of(&text) {
+                                    state.gateway.set_active(user.id, conn_id, active);
+                                }
+                            }
                             // Resume isn't implemented yet; tell the client to re-Identify.
                             Some(3)
                                 if send_frame(&mut socket, 9, serde_json::Value::Null, None, None)
@@ -299,6 +304,8 @@ async fn handle_socket(mut socket: WebSocket, state: SharedState, user: User) {
         }
     }
 
+    state.gateway.set_active(user.id, conn_id, false);
+
     // The counterpart to the "first connection" broadcast above — only
     // announce "offline" once this was the user's *last* live
     // connection (they could still have another tab/device open).
@@ -331,6 +338,13 @@ async fn handle_socket(mut socket: WebSocket, state: SharedState, user: User) {
             );
         }
     }
+}
+
+/// Op 12 (Activity): `{ active: bool }` — whether this page is in front of
+/// someone who is using it. Decides whether they get Web Push (see `push`).
+fn activity_of(text: &str) -> Option<bool> {
+    let value: serde_json::Value = serde_json::from_str(text).ok()?;
+    value.get("d")?.get("active")?.as_bool()
 }
 
 /// Parses and applies an incoming op 4 (VoiceStateUpdate) frame:
@@ -429,6 +443,19 @@ async fn handle_voice_state_update(
             if renegotiate && previous == Some((channel_id, room)) {
                 // Same call, same connection: nobody needs to hear about it.
                 return;
+            }
+
+            // The first one in a direct conversation's call is calling the
+            // others; anyone who isn't looking at Chatly gets a push.
+            if channel.guild_id.is_none()
+                && previous.map(|(c, _)| c) != Some(channel_id)
+                && !state
+                    .gateway
+                    .voice_participants(room)
+                    .iter()
+                    .any(|&(c, u)| c == channel_id && u != user_id)
+            {
+                crate::push::call_started(state, user_id, channel_id);
             }
 
             state.gateway.set_voice_state(user_id, Some((channel_id, room)));

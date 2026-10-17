@@ -91,6 +91,14 @@ type Listener = {
   disconnected: () => void;
 };
 
+/** How long without input before a visible page stops counting as in use. */
+export const IDLE_AFTER_MS = 3 * 60_000;
+
+/** Someone is using the page: it's in front, focused, and was touched lately. */
+export function isActive(visible: boolean, focused: boolean, sinceInputMs: number): boolean {
+  return visible && focused && sinceInputMs < IDLE_AFTER_MS;
+}
+
 /** Connects to /gateway, Identifies, keeps a heartbeat, and reconnects
  * with exponential backoff on drop. Resume (op 3) isn't implemented by
  * the server yet, so a drop always re-Identifies from scratch. */
@@ -101,8 +109,29 @@ export class GatewayClient {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private closedByUser = false;
   private listeners: Partial<Listener> = {};
+  /** What the server was last told by op 12 (see `reportActivity`). */
+  private active = false;
+  private lastInputAt = Date.now();
 
   constructor() {
+    // Whether someone is using this page decides whether they get pushed
+    // notifications on their other devices (the server skips anyone active).
+    const onInput = (): void => {
+      this.lastInputAt = Date.now();
+      this.reportActivity();
+    };
+    for (const type of ["pointerdown", "keydown", "touchstart", "wheel"]) {
+      window.addEventListener(type, onInput, { passive: true, capture: true });
+    }
+    window.addEventListener("pointermove", () => {
+      if (Date.now() - this.lastInputAt > 10_000) onInput();
+    });
+    window.addEventListener("focus", () => this.reportActivity());
+    window.addEventListener("blur", () => this.reportActivity());
+    document.addEventListener("visibilitychange", () => this.reportActivity());
+    window.addEventListener("pagehide", () => this.reportActivity());
+    setInterval(() => this.reportActivity(), 15_000);
+
     // Mobile browsers throttle (or fully suspend) a hidden tab's own
     // timers hard enough that this class's heartbeat routinely stops
     // firing altogether once a phone's screen turns off — after
@@ -190,6 +219,19 @@ export class GatewayClient {
     });
   }
 
+  /** Sends op 12 (Activity) when whether this page is in use has changed,
+   * or always when `force` (a fresh connection starts out inactive). */
+  private reportActivity(force = false): void {
+    const active = isActive(
+      document.visibilityState === "visible",
+      document.hasFocus(),
+      Date.now() - this.lastInputAt,
+    );
+    if (active === this.active && !force) return;
+    this.active = active;
+    if (this.socket?.readyState === WebSocket.OPEN) this.send({ op: 12, d: { active } });
+  }
+
   private scheduleReconnect(): void {
     const delayMs = Math.min(30_000, 1000 * 2 ** this.reconnectAttempt);
     this.reconnectAttempt += 1;
@@ -205,6 +247,7 @@ export class GatewayClient {
         const { heartbeat_interval_ms } = frame.d as { heartbeat_interval_ms: number };
         this.send({ op: 2, d: {} });
         this.startHeartbeat(heartbeat_interval_ms);
+        this.reportActivity(true);
         break;
       }
       case 0:

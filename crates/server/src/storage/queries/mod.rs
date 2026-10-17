@@ -11,6 +11,7 @@ pub mod invites;
 pub mod messages;
 pub mod mfa;
 pub mod pinned_dms;
+pub mod push;
 pub mod reactions;
 pub mod roles;
 pub mod sessions;

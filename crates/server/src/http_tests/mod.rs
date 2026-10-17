@@ -8,6 +8,7 @@ mod admin;
 mod audit;
 mod dms;
 mod enrichment;
+mod push;
 mod search;
 
 use axum::http::StatusCode;

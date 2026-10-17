@@ -10,6 +10,7 @@ mod instance;
 mod invites;
 mod messages;
 mod migrations;
+mod push;
 mod queries;
 mod roles;
 mod sessions;
@@ -28,6 +29,7 @@ pub use guilds::GuildStore;
 pub use instance::InstanceStore;
 pub use invites::InviteStore;
 pub use messages::MessageStore;
+pub use push::PushStore;
 pub use roles::RoleStore;
 pub use sessions::SessionStore;
 
@@ -51,6 +53,7 @@ pub trait Storage:
     + InstanceStore
     + InviteStore
     + MessageStore
+    + PushStore
     + RoleStore
     + SessionStore
 {

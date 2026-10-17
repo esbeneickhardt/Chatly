@@ -113,6 +113,8 @@ default compose file):
 
 - `chat.db`, `chat.db-wal`, `chat.db-shm` — the SQLite database (WAL mode).
 - `secret_key` — only present if you didn't set `SECRET_KEY` yourself.
+- `vapid_key` — the Web Push signing key, generated on first start. Losing
+  it stops notifications on every device until each turns them on again.
 - `files/` — uploaded attachments and avatars.
 
 ### Backup and restore
@@ -125,8 +127,8 @@ docker compose -f docker/docker-compose.yml exec chatly \
     chatly backup /data/backups/$(date +%F)
 ```
 
-The directory must be empty or not exist; it receives `chat.db`, `files/`
-and `secret_key`. Copy it off the machine — a backup on the same disk
+The directory must be empty or not exist; it receives `chat.db`, `files/`,
+`secret_key` and `vapid_key`. Copy it off the machine — a backup on the same disk
 isn't one. Restore into an empty data directory, with the server stopped:
 
 ```sh
@@ -210,13 +212,17 @@ message, so a dead call is never left on screen.
 
 Stated plainly, so you can decide whether they matter to you:
 
-- **Notifications need the app open.** Turning on *Settings → Devices →
-  Show notifications when the app is in the background* raises a
-  notification for direct messages, mentions and incoming calls while a
-  Chatly tab or the installed app is open but not in front. Chatly can be
-  installed as an app (browser menu → *Install*). It does **not** use Web
-  Push, so nothing arrives once every Chatly window is closed; that needs a
-  push service and is not built.
+- **Notifications are notifications, not phone calls.** With *Settings →
+  Devices → Notify me of calls, direct messages and mentions* on, Chatly
+  uses Web Push, so calls, DMs and mentions arrive with every Chatly window
+  closed — as long as the person isn't using Chatly on another device right
+  then. On iPhone and iPad that needs iOS 16.4+ and Chatly added to the
+  Home Screen (Share → *Add to Home Screen*); Android works in Chrome,
+  installed or not. A call shows as a notification (on Android with Answer
+  and Decline), not a full-screen ringing call: that takes a native app.
+  The server needs outbound HTTPS to the browser vendors' push services
+  (Google, Apple, Mozilla, Microsoft); subscriptions to anything else are
+  refused.
 - **No end-to-end encryption.** The server can read messages. Use TLS
   (see below) and encrypt the disk if that matters.
 - **No gateway resume.** A dropped connection reconnects and refetches
