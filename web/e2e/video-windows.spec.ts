@@ -176,8 +176,14 @@ test.describe("video windows", () => {
     await expect(camera).not.toHaveClass(/tile-in-pip/);
     await expect(screen).toHaveClass(/tile-in-pip/);
 
-    // Putting back the last one closes the window.
-    await shared.getByRole("button", { name: /^Put .* back in the call window$/ }).click();
+    // Putting back the last one closes the window, sometimes before the click has finished.
+    await Promise.all([
+      shared.waitForEvent("close"),
+      shared
+        .getByRole("button", { name: /^Put .* back in the call window$/ })
+        .click()
+        .catch(() => {}),
+    ]);
     await expect.poll(() => shared.isClosed()).toBe(true);
     await expect(screen).not.toHaveClass(/tile-in-pip/);
   });

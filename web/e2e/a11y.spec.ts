@@ -69,7 +69,8 @@ test.describe("accessibility", () => {
     await expectNoViolations(page, "settings");
     await page.locator(".settings-nav-item", { hasText: "Global admin" }).click();
     await page.locator(".segmented button", { hasText: "All servers" }).click();
-    await expect(page.locator(".admin-server-card").first()).toBeVisible();
+    // account rows share the card style but sit in the hidden "All accounts" panel
+    await expect(page.locator(".admin-server-card").filter({ visible: true }).first()).toBeVisible();
     await expectNoViolations(page, "global admin");
   });
 
