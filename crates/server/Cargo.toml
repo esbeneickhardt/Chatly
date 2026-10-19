@@ -39,7 +39,7 @@ sha1 = "0.10"
 tokio-stream = { version = "0.1.19", features = ["sync"] }
 futures-util = "0.3.34"
 tokio-util = { version = "0.7.19", features = ["io"] }
-str0m = { version = "0.23.1", default-features = false, features = ["rust-crypto"] }
+str0m = { version = "0.24.1", default-features = false, features = ["rust-crypto"] }
 sysinfo = "0.39.6"
 socket2 = "0.6"
 p256 = { version = "0.13", features = ["ecdh", "ecdsa"] }
