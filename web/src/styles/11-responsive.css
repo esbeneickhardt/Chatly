@@ -130,6 +130,15 @@
     padding: 0.55rem 0.5rem;
     border-radius: var(--radius-sm);
     text-align: left;
+    /* the base button style centres its content */
+    justify-content: flex-start;
+  }
+
+  .mobile-server-list-row > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .mobile-server-list-row:hover,
