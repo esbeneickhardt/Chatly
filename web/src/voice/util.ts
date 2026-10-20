@@ -97,6 +97,12 @@ export function addSendTransceiver(
  * alone often isn't loud enough. */
 export const MAX_REMOTE_VOLUME = 3;
 
+/** Ceiling for the master input and output volume sliders (Settings →
+ * Devices): up to 2x for a quiet phone mic or speaker. Past 1 the
+ * output plays through `RemoteAudio`'s boost path and the input through
+ * `LocalMic`'s limiter. */
+export const MAX_VOLUME = 2;
+
 /** Screen-share encoder limits. Chrome treats every `getDisplayMedia`
  * track as a slide-style "screencast": on a constrained uplink it holds
  * resolution and drops the frame rate to a few fps, which is exactly
@@ -147,10 +153,11 @@ export function screenSendEncoding(track: MediaStreamTrack): RTCRtpEncodingParam
   };
 }
 
-export function inputConstraints(deviceId: string | null): MediaTrackConstraints {
+export function inputConstraints(deviceId: string | null, noiseFilter = false): MediaTrackConstraints {
   const constraints: MediaTrackConstraints = {
     echoCancellation: true,
-    noiseSuppression: true,
+    // RNNoise does a better job on its own; running both muffles speech.
+    noiseSuppression: !noiseFilter,
     autoGainControl: true,
   };
   if (deviceId) {

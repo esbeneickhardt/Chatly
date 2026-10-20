@@ -1,50 +1,45 @@
-// Settings → Account, Logout and Danger: ownership transfer, sign-out, account deletion.
+// Settings → Account, Logout and Danger: data export, sign-out,
+// ownership transfer and account deletion.
 
-import { ApiError, type User, api } from "../../api";
-import { icon } from "../../icons";
+import { type User, api } from "../../api";
 import { confirmDialog } from "../../ui";
-import { field, passwordBox, passwordConfirmRow, section } from "./widgets";
+import { errorMessage, field, formDialog, group, passwordField, row } from "./widgets";
 
-/** Its own top-level tab rather than tucked inside Security — signing
- * out isn't a security setting, it's an action, and burying it one
- * level down under an unrelated heading just made it harder to find. */
 export function renderLogoutSection(container: HTMLElement, onLoggedOut: () => void): void {
-  const logoutBtn = document.createElement("button");
-  logoutBtn.type = "button";
-  logoutBtn.className = "secondary";
-  logoutBtn.append(icon("log-out", 15), document.createTextNode("Log out"));
-  logoutBtn.addEventListener("click", async () => {
-    await api.post("/api/logout");
-    onLoggedOut();
+  const logoutRow = row({
+    label: "Log out",
+    action: true,
+    onClick: async () => {
+      await api.post("/api/logout");
+      onLoggedOut();
+    },
   });
-
-  const logoutAllBtn = document.createElement("button");
-  logoutAllBtn.type = "button";
-  logoutAllBtn.className = "danger";
-  logoutAllBtn.textContent = "Log out everywhere";
-  logoutAllBtn.addEventListener("click", async () => {
-    await api.post("/api/logout-all");
-    onLoggedOut();
+  const logoutAllRow = row({
+    label: "Log out everywhere",
+    action: true,
+    danger: true,
+    onClick: async () => {
+      const ok = await confirmDialog({
+        title: "Log out everywhere?",
+        message: "Every device signed in to this account is logged out.",
+        confirmLabel: "Log out everywhere",
+        danger: true,
+      });
+      if (!ok) return;
+      await api.post("/api/logout-all");
+      onLoggedOut();
+    },
   });
-
-  const logoutRow = document.createElement("div");
-  logoutRow.className = "settings-button-row";
-  logoutRow.append(logoutBtn, logoutAllBtn);
-
-  container.append(section("Sessions", logoutRow));
+  container.append(group("Sessions", logoutRow.el, logoutAllRow.el));
 }
 
 /** Populates `select` with every real, non-deleted account other than
- * `excludeUserId` — the pool instance ownership can move to. Shared by
- * the Transfer Ownership panel and the "transfer, then delete" choices
- * in the Delete My Account panel below, both of which need the exact
- * same picker. Reuses `/api/admin/users` (the same list the Admin tab
- * already fetches) rather than a dedicated endpoint. */
+ * `excludeUserId` — the pool instance ownership can move to. Reuses
+ * `/api/admin/users` (the same list the Admin tab already fetches)
+ * rather than a dedicated endpoint. */
 async function loadOwnerCandidates(select: HTMLSelectElement, excludeUserId: string): Promise<void> {
   select.disabled = true;
-  select.replaceChildren(
-    Object.assign(document.createElement("option"), { textContent: "Loading accounts…" }),
-  );
+  select.replaceChildren(Object.assign(document.createElement("option"), { textContent: "Loading…" }));
   try {
     const users = await api.get<User[]>("/api/admin/users");
     const eligible = users.filter((u) => !u.is_bot && !u.is_guest && u.id !== excludeUserId);
@@ -70,230 +65,156 @@ async function loadOwnerCandidates(select: HTMLSelectElement, excludeUserId: str
   }
 }
 
-/** The instance owner hands `is_owner` to another real account — the
- * only way out of `delete_account`'s own block on deleting yourself
- * while still holding it, short of the "delete without transferring"
- * choice in the Delete My Account panel below.
- *
- * Starts as just a button with no explanatory sentence — "what happens
- * if I click Transfer Ownership" doesn't need one, only *picking who*
- * does, so that (plus the password confirmation) is what the revealed
- * panel shows. Same click-to-reveal shape the Admin tab's own per-user
- * "Delete…" already uses (see `deletePanel` there). */
-function renderTransferOwnershipSection(user: User): HTMLElement {
-  const startBtn = document.createElement("button");
-  startBtn.type = "button";
-  startBtn.className = "secondary";
-  startBtn.textContent = "Transfer Ownership";
-
-  function buildPanel(): HTMLElement {
-    const panel = document.createElement("div");
-    panel.className = "reveal-panel";
-
-    const ownerField = field("New owner");
-    const select = document.createElement("select");
-    ownerField.appendChild(select);
-    void loadOwnerCandidates(select, user.id);
-
-    const passwordField = field("Confirm your password");
-    const { wrap: passwordWrap, input: passwordInput } = passwordBox();
-    passwordField.appendChild(passwordWrap);
-
-    const error = document.createElement("p");
-    error.className = "error-text";
-    error.hidden = true;
-
-    const cancelBtn = document.createElement("button");
-    cancelBtn.type = "button";
-    cancelBtn.className = "secondary";
-    cancelBtn.textContent = "Cancel";
-    cancelBtn.addEventListener("click", () => panel.replaceWith(startBtn));
-
-    const confirmBtn = document.createElement("button");
-    confirmBtn.type = "button";
-    confirmBtn.className = "danger";
-    confirmBtn.textContent = "Transfer Ownership";
-    confirmBtn.addEventListener("click", async () => {
-      if (!select.value || !passwordInput.value) return;
-      const targetLabel = select.selectedOptions[0]?.textContent ?? "this account";
-      const ok = await confirmDialog({
-        title: "Transfer ownership?",
-        message: `Make ${targetLabel} the instance owner? This can't be undone by yourself.`,
-        confirmLabel: "Transfer Ownership",
-        danger: true,
-      });
-      if (!ok) return;
-      error.hidden = true;
-      confirmBtn.disabled = true;
-      try {
-        await api.post("/api/me/transfer-ownership", {
-          user_id: select.value,
-          password: passwordInput.value,
-        });
-        panel.replaceWith(
-          Object.assign(document.createElement("p"), {
-            className: "muted-text",
-            textContent: "Ownership transferred — reloading…",
-          }),
-        );
-        setTimeout(() => window.location.reload(), 1200);
-      } catch (err) {
-        error.textContent = err instanceof ApiError ? err.message : "Something went wrong.";
-        error.hidden = false;
-        confirmBtn.disabled = false;
-      }
-    });
-
-    const actions = document.createElement("div");
-    actions.className = "reveal-panel-actions";
-    actions.append(cancelBtn, confirmBtn);
-    panel.append(ownerField, passwordField, actions, error);
-    return panel;
-  }
-
-  startBtn.addEventListener("click", () => startBtn.replaceWith(buildPanel()));
-
-  return section("Transfer ownership", startBtn);
+function ownerPicker(user: User): { el: HTMLElement; select: HTMLSelectElement } {
+  const el = field("New owner");
+  const select = document.createElement("select");
+  el.appendChild(select);
+  void loadOwnerCandidates(select, user.id);
+  return { el, select };
 }
 
-/** Just the GDPR data-portability half — export used to share a tab
- * with transfer-ownership/delete, which is why the tab itself was
- * still called "Account" while everything actually destructive lived
- * in the new "Danger" tab instead (see `renderDangerSection`). */
 export function renderAccountSection(container: HTMLElement): void {
-  const exportBtn = document.createElement("button");
-  exportBtn.type = "button";
-  exportBtn.className = "secondary";
-  exportBtn.textContent = "Export my data";
-  const exportError = document.createElement("p");
-  exportError.className = "error-text";
-  exportError.hidden = true;
-  exportBtn.addEventListener("click", async () => {
-    exportError.hidden = true;
-    exportBtn.disabled = true;
-    try {
-      const data = await api.get("/api/me/export");
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = "chatly-data-export.json";
-      link.click();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      exportError.textContent = err instanceof ApiError ? err.message : "Couldn't export your data.";
-      exportError.hidden = false;
-    } finally {
-      exportBtn.disabled = false;
-    }
+  const exportRow = row({
+    label: "Export my data",
+    action: true,
+    onClick: async () => {
+      const button = exportRow.el as HTMLButtonElement;
+      button.disabled = true;
+      button.classList.add("busy");
+      exportRow.setValue("");
+      try {
+        const data = await api.get("/api/me/export");
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "chatly-data-export.json";
+        link.click();
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        exportRow.setValue(errorMessage(err, "Couldn't export"));
+      } finally {
+        button.disabled = false;
+        button.classList.remove("busy");
+      }
+    },
   });
 
-  container.append(section("Export your data", exportBtn, exportError));
+  container.append(group("Your data", exportRow.el));
 }
 
-/** Transfer-ownership + delete-account — split out of the old
- * "Account" tab into its own nav item, red-accented like Logout (see
- * `renderSettings`'s `caution` tabs), since neither reads as "just
- * another settings pane" the way Profile/Devices/Security/Account do.
- *
- * Each headline is followed by exactly one button and nothing else —
- * no explanatory sentence sits between them. What each button *does*
- * only shows up once it's clicked.
- *
- * Deleting always erases every message the account ever sent and
- * removes the account itself outright — there's no more "anonymize
- * and leave a placeholder behind" choice to make (see
- * `Storage::delete_account`), so a plain member sees nothing beyond
- * the password field. The instance owner gets exactly one extra
- * choice: delete straight away (`force_guilds: true` — the server
- * otherwise refuses to delete the one account holding `is_owner` at
- * all, see `auth::delete_account`, and this also tears down every
- * guild they own in the same action) or transfer `is_owner` to
- * someone else first, then do the same delete — still with
- * `force_guilds: true`, since instance ownership and *guild* ownership
- * are separate things and transferring the former doesn't relinquish
- * the latter. */
-export function renderDangerSection(container: HTMLElement, user: User, onLoggedOut: () => void): void {
-  if (user.is_owner) container.append(renderTransferOwnershipSection(user));
-
-  function buildDeletePanel(startBtn: HTMLElement): HTMLElement {
-    const panel = document.createElement("div");
-    panel.className = "reveal-panel";
-
-    let transferFirst = false;
-
-    const ownerField = field("New owner");
-    const ownerSelect = document.createElement("select");
-    ownerField.appendChild(ownerSelect);
-    ownerField.hidden = true;
-    void loadOwnerCandidates(ownerSelect, user.id);
-
-    let modeWrap: HTMLElement | null = null;
-    if (user.is_owner) {
-      modeWrap = document.createElement("div");
-      modeWrap.className = "radio-group";
-      function radioRow(value: boolean, label: string): HTMLLabelElement {
-        const row = document.createElement("label");
-        row.className = "radio-row";
-        const input = document.createElement("input");
-        input.type = "radio";
-        input.name = "delete-account-choice";
-        input.checked = value === transferFirst;
-        input.addEventListener("change", () => {
-          if (!input.checked) return;
-          transferFirst = value;
-          ownerField.hidden = !transferFirst;
+/** The instance owner hands `is_owner` to another real account — the
+ * only way out of `delete_account`'s own block on deleting yourself
+ * while still holding it, short of deleting without transferring. */
+function transferOwnershipDialog(user: User): void {
+  const owner = ownerPicker(user);
+  const password = passwordField("Your password", "current-password");
+  formDialog({
+    title: "Transfer ownership",
+    content: [owner.el, password.el],
+    submitLabel: "Transfer",
+    danger: true,
+    onSubmit: async () => {
+      if (!owner.select.value || !password.input.value) return "Pick a new owner and enter your password.";
+      const targetLabel = owner.select.selectedOptions[0]?.textContent ?? "this account";
+      const ok = await confirmDialog({
+        title: "Transfer ownership?",
+        message: `${targetLabel} becomes the instance owner. You can't undo this yourself.`,
+        confirmLabel: "Transfer",
+        danger: true,
+      });
+      if (!ok) return undefined;
+      try {
+        await api.post("/api/me/transfer-ownership", {
+          user_id: owner.select.value,
+          password: password.input.value,
         });
-        row.append(input, document.createTextNode(` ${label}`));
-        return row;
+      } catch (err) {
+        return errorMessage(err);
       }
-      modeWrap.append(
-        radioRow(false, "Delete account"),
-        radioRow(true, "Transfer ownership, then delete account"),
-      );
-    }
+      window.location.reload();
+      return null;
+    },
+  });
+}
 
-    const { passwordField, actions, error } = passwordConfirmRow({
-      confirmLabel: "Delete Account",
-      onCancel: () => panel.replaceWith(startBtn),
-      onConfirm: async (password, confirmBtn, errorEl) => {
-        if (transferFirst && !ownerSelect.value) {
-          errorEl.textContent = "Choose who to transfer ownership to.";
-          errorEl.hidden = false;
-          return;
-        }
-        const ok = await confirmDialog({
-          title: transferFirst ? "Transfer ownership and delete your account?" : "Delete your account?",
-          message: "This can't be undone.",
-          confirmLabel: "Delete Account",
-          danger: true,
-        });
-        if (!ok) return;
-        errorEl.hidden = true;
-        confirmBtn.disabled = true;
-        try {
-          if (transferFirst) {
-            await api.post("/api/me/transfer-ownership", { user_id: ownerSelect.value, password });
-          }
-          await api.del("/api/me", { password, force_guilds: user.is_owner });
-          onLoggedOut();
-        } catch (err) {
-          errorEl.textContent = err instanceof ApiError ? err.message : "Something went wrong.";
-          errorEl.hidden = false;
-          confirmBtn.disabled = false;
-        }
-      },
-    });
-
-    panel.append(...(modeWrap ? [modeWrap] : []), ownerField, passwordField, actions, error);
-    return panel;
+/** Deleting always erases every message the account ever sent and
+ * removes the account outright (see `Storage::delete_account`). The
+ * instance owner gets one extra choice: delete straight away
+ * (`force_guilds: true`, which the server requires to delete the
+ * `is_owner` account and which also tears down every guild they own)
+ * or transfer `is_owner` to someone else first, then do the same
+ * delete — still with `force_guilds: true`, since instance ownership
+ * and guild ownership are separate things. */
+function deleteAccountDialog(user: User, onLoggedOut: () => void): void {
+  let transferFirst = false;
+  const content: Node[] = [];
+  const owner = user.is_owner ? ownerPicker(user) : null;
+  if (owner) {
+    owner.el.hidden = true;
+    const choices = document.createElement("div");
+    choices.className = "radio-group";
+    const radioRow = (value: boolean, label: string): HTMLLabelElement => {
+      const el = document.createElement("label");
+      el.className = "radio-row";
+      const input = document.createElement("input");
+      input.type = "radio";
+      input.name = "delete-account-choice";
+      input.checked = value === transferFirst;
+      input.addEventListener("change", () => {
+        if (!input.checked) return;
+        transferFirst = value;
+        owner.el.hidden = !transferFirst;
+      });
+      el.append(input, document.createTextNode(label));
+      return el;
+    };
+    choices.append(radioRow(false, "Just delete"), radioRow(true, "Transfer ownership first"));
+    content.push(choices, owner.el);
   }
+  const password = passwordField("Your password", "current-password");
+  content.push(password.el);
 
-  const startBtn = document.createElement("button");
-  startBtn.type = "button";
-  startBtn.className = "danger";
-  startBtn.textContent = "Delete Account";
-  startBtn.addEventListener("click", () => startBtn.replaceWith(buildDeletePanel(startBtn)));
+  formDialog({
+    title: "Delete account",
+    content,
+    submitLabel: "Delete account",
+    danger: true,
+    onSubmit: async () => {
+      if (!password.input.value) return "Enter your password.";
+      if (transferFirst && !owner?.select.value) return "Pick a new owner.";
+      const ok = await confirmDialog({
+        title: "Delete your account?",
+        message: "Your account and every message you've sent are gone for good.",
+        confirmLabel: "Delete account",
+        danger: true,
+      });
+      if (!ok) return undefined;
+      try {
+        if (transferFirst && owner) {
+          await api.post("/api/me/transfer-ownership", {
+            user_id: owner.select.value,
+            password: password.input.value,
+          });
+        }
+        await api.del("/api/me", { password: password.input.value, force_guilds: user.is_owner });
+      } catch (err) {
+        return errorMessage(err);
+      }
+      onLoggedOut();
+      return null;
+    },
+  });
+}
 
-  container.append(section("Delete my account", startBtn));
+export function renderDangerSection(container: HTMLElement, user: User, onLoggedOut: () => void): void {
+  const transferRow = user.is_owner
+    ? row({ label: "Transfer ownership", onClick: () => transferOwnershipDialog(user) })
+    : null;
+  const deleteRow = row({
+    label: "Delete account",
+    danger: true,
+    onClick: () => deleteAccountDialog(user, onLoggedOut),
+  });
+  container.append(group("Account", transferRow?.el ?? null, deleteRow.el));
 }

@@ -1,7 +1,7 @@
 // Settings → Security: two-factor authentication and friend-request privacy.
 
-import { ApiError, api } from "../../api";
-import { section } from "./widgets";
+import { api } from "../../api";
+import { errorMessage, field, formDialog, group, switchRow } from "./widgets";
 
 export function renderSecuritySection(
   container: HTMLElement,
@@ -9,195 +9,106 @@ export function renderSecuritySection(
   onMfaChanged: () => void,
   acceptsFriendRequests: boolean,
 ): void {
-  const mfaBody = document.createElement("div");
-  renderMfaSection(mfaBody, mfaEnabled, onMfaChanged);
-
-  const friendRequestsBody = document.createElement("div");
-  renderFriendRequestsSetting(friendRequestsBody, acceptsFriendRequests);
-
-  container.append(
-    section("Two-factor authentication", mfaBody),
-    section("Friend requests", friendRequestsBody),
-  );
-}
-
-function renderFriendRequestsSetting(container: HTMLElement, accepts: boolean): void {
-  const row = document.createElement("label");
-  row.className = "toggle-row";
-
-  const checkbox = document.createElement("input");
-  checkbox.type = "checkbox";
-  checkbox.checked = accepts;
-
-  const slider = document.createElement("span");
-  slider.className = "toggle-slider";
-
-  const status = document.createElement("span");
-  status.textContent = accepts ? "Accepting friend requests" : "Not accepting friend requests";
-
-  row.append(checkbox, slider, status);
-  container.replaceChildren(row);
-
-  checkbox.addEventListener("change", async () => {
-    const next = checkbox.checked;
-    checkbox.disabled = true;
-    try {
-      await api.patch("/api/friends/settings", { accepts_friend_requests: next });
-      status.textContent = next ? "Accepting friend requests" : "Not accepting friend requests";
-    } catch {
-      checkbox.checked = !next;
-    } finally {
-      checkbox.disabled = false;
-    }
-  });
-}
-
-function renderMfaSection(container: HTMLElement, enabled: boolean, onChanged: () => void): void {
-  const row = document.createElement("label");
-  row.className = "toggle-row";
-
-  const checkbox = document.createElement("input");
-  checkbox.type = "checkbox";
-  checkbox.checked = enabled;
-
-  const slider = document.createElement("span");
-  slider.className = "toggle-slider";
-
-  const status = document.createElement("span");
-  status.textContent = enabled ? "Enabled" : "Not enabled";
-
-  row.append(checkbox, slider, status);
-  container.replaceChildren(row);
-
   // Flipping the switch only *starts* the enroll/disable flow (both
-  // need a confirmation code) — it doesn't commit anything by itself,
-  // so the box always snaps back to the last real state until that
-  // flow actually finishes.
-  checkbox.addEventListener("change", () => {
-    checkbox.checked = enabled;
-    if (enabled) {
-      renderDisableForm(container, onChanged);
-    } else {
-      void startEnrollment(container, onChanged);
-    }
+  // need a confirmation code), so it snaps back until that flow
+  // actually finishes.
+  const mfaRow = switchRow("Two-factor authentication", mfaEnabled, (next) => {
+    const done = (): void => {
+      mfaEnabled = next;
+      mfaRow.input.checked = next;
+      onMfaChanged();
+    };
+    if (next) void startEnrollment(done);
+    else disableDialog(done);
+    return false;
   });
+
+  const friendRow = switchRow("Accept friend requests", acceptsFriendRequests, async (next) => {
+    await api.patch("/api/friends/settings", { accepts_friend_requests: next });
+  });
+
+  container.append(group("Sign-in", mfaRow.el), group("Privacy", friendRow.el));
 }
 
-async function startEnrollment(container: HTMLElement, onChanged: () => void): Promise<void> {
-  const enroll = await api.post<{ secret_base32: string; otpauth_uri: string; qr_svg: string }>(
-    "/api/mfa/totp/enroll",
-  );
+function codeInput(): { el: HTMLElement; input: HTMLInputElement } {
+  const el = field("Code from your authenticator app");
+  const input = document.createElement("input");
+  input.type = "text";
+  input.inputMode = "numeric";
+  input.autocomplete = "one-time-code";
+  input.placeholder = "123456";
+  el.appendChild(input);
+  return { el, input };
+}
 
-  const wrap = document.createElement("div");
+async function startEnrollment(onEnabled: () => void): Promise<void> {
+  let enroll: { secret_base32: string; otpauth_uri: string; qr_svg: string };
+  try {
+    enroll = await api.post("/api/mfa/totp/enroll");
+  } catch {
+    return;
+  }
 
   const qrBox = document.createElement("div");
   qrBox.className = "qr-box";
   const svgDoc = new DOMParser().parseFromString(enroll.qr_svg, "image/svg+xml");
   qrBox.appendChild(document.importNode(svgDoc.documentElement, true));
 
-  const secretLabel = document.createElement("p");
-  secretLabel.className = "muted-text";
-  secretLabel.textContent = "Or enter this code manually in your authenticator app:";
-
   const secretCode = document.createElement("div");
   secretCode.className = "secret-code";
   secretCode.textContent = enroll.secret_base32;
 
-  const codeInput = document.createElement("input");
-  codeInput.type = "text";
-  codeInput.autocomplete = "one-time-code";
-  codeInput.placeholder = "6-digit code";
+  const code = codeInput();
+  let codes: string[] | null = null;
 
-  const error = document.createElement("p");
-  error.className = "error-text";
-  error.hidden = true;
-
-  const confirmBtn = document.createElement("button");
-  confirmBtn.textContent = "Confirm";
-  confirmBtn.addEventListener("click", async () => {
-    error.hidden = true;
-    confirmBtn.disabled = true;
-    try {
-      const result = await api.post<{ recovery_codes: string[] }>("/api/mfa/totp/confirm", {
-        code: codeInput.value.trim(),
-      });
-      showRecoveryCodes(container, result.recovery_codes, onChanged);
-    } catch (err) {
-      error.textContent = err instanceof ApiError ? err.message : "Something went wrong.";
-      error.hidden = false;
-    } finally {
-      confirmBtn.disabled = false;
-    }
+  formDialog({
+    title: "Set up two-factor authentication",
+    content: [qrBox, secretCode, code.el],
+    submitLabel: "Enable",
+    onSubmit: async (dialog) => {
+      if (codes) return null;
+      try {
+        const result = await api.post<{ recovery_codes: string[] }>("/api/mfa/totp/confirm", {
+          code: code.input.value.trim(),
+        });
+        codes = result.recovery_codes;
+      } catch (err) {
+        return errorMessage(err);
+      }
+      onEnabled();
+      // Second step in the same dialog: the one-time recovery codes.
+      const heading = field("Recovery codes");
+      const grid = document.createElement("div");
+      grid.className = "recovery-codes";
+      for (const recovery of codes) {
+        const span = document.createElement("span");
+        span.textContent = recovery;
+        grid.appendChild(span);
+      }
+      heading.appendChild(grid);
+      dialog.body.replaceChildren(heading);
+      dialog.actions.querySelector<HTMLButtonElement>("button.secondary")?.remove();
+      dialog.submitBtn.textContent = "I've saved these";
+      return undefined;
+    },
   });
-
-  wrap.append(qrBox, secretLabel, secretCode, codeInput, error, confirmBtn);
-  container.replaceChildren(wrap);
 }
 
-function showRecoveryCodes(container: HTMLElement, codes: string[], onChanged: () => void): void {
-  const wrap = document.createElement("div");
-
-  const note = document.createElement("p");
-  note.textContent =
-    "Save these recovery codes somewhere safe. Each one works once if you lose access to your authenticator.";
-
-  const grid = document.createElement("div");
-  grid.className = "recovery-codes";
-  for (const code of codes) {
-    const span = document.createElement("span");
-    span.textContent = code;
-    grid.appendChild(span);
-  }
-
-  const doneBtn = document.createElement("button");
-  doneBtn.textContent = "I've saved these";
-  doneBtn.addEventListener("click", () => {
-    onChanged();
-    renderMfaSection(container, true, onChanged);
+function disableDialog(onDisabled: () => void): void {
+  const code = codeInput();
+  formDialog({
+    title: "Turn off two-factor authentication",
+    content: [code.el],
+    submitLabel: "Turn off",
+    danger: true,
+    onSubmit: async () => {
+      try {
+        await api.post("/api/mfa/totp/disable", { code: code.input.value.trim() || undefined });
+      } catch (err) {
+        return errorMessage(err);
+      }
+      onDisabled();
+      return null;
+    },
   });
-
-  wrap.append(note, grid, doneBtn);
-  container.replaceChildren(wrap);
-}
-
-function renderDisableForm(container: HTMLElement, onChanged: () => void): void {
-  const wrap = document.createElement("div");
-
-  const hint = document.createElement("p");
-  hint.className = "muted-text";
-  hint.textContent = "Enter your current 6-digit code to disable 2FA.";
-
-  const codeInput = document.createElement("input");
-  codeInput.type = "text";
-  codeInput.placeholder = "6-digit code";
-
-  const error = document.createElement("p");
-  error.className = "error-text";
-  error.hidden = true;
-
-  const confirmBtn = document.createElement("button");
-  confirmBtn.className = "danger";
-  confirmBtn.textContent = "Disable";
-  confirmBtn.addEventListener("click", async () => {
-    error.hidden = true;
-    confirmBtn.disabled = true;
-    try {
-      await api.post("/api/mfa/totp/disable", { code: codeInput.value.trim() || undefined });
-      onChanged();
-      renderMfaSection(container, false, onChanged);
-    } catch (err) {
-      error.textContent = err instanceof ApiError ? err.message : "Something went wrong.";
-      error.hidden = false;
-    } finally {
-      confirmBtn.disabled = false;
-    }
-  });
-
-  const cancelBtn = document.createElement("button");
-  cancelBtn.className = "secondary";
-  cancelBtn.textContent = "Cancel";
-  cancelBtn.addEventListener("click", () => renderMfaSection(container, true, onChanged));
-
-  wrap.append(hint, codeInput, error, confirmBtn, cancelBtn);
-  container.replaceChildren(wrap);
 }

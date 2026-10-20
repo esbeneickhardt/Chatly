@@ -48,6 +48,8 @@ export type IconName =
   | "minimize-2"
   | "external-link"
   | "chevron-up"
+  | "chevron-right"
+  | "chevron-left"
   | "pin"
   | "user-minus"
   | "menu"
@@ -118,6 +120,8 @@ const PATHS: Record<IconName, string> = {
   "external-link":
     '<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line>',
   "chevron-up": '<polyline points="18 15 12 9 6 15"></polyline>',
+  "chevron-right": '<polyline points="9 18 15 12 9 6"></polyline>',
+  "chevron-left": '<polyline points="15 18 9 12 15 6"></polyline>',
   pin: '<path d="M12 17v5"></path><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"></path>',
   "user-minus":
     '<path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="23" y1="11" x2="17" y2="11"></line>',

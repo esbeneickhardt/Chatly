@@ -1,4 +1,5 @@
-// Settings → Devices: audio, video and notification preferences.
+// Settings → Devices: microphone, speaker, voice filters, connection
+// test and notifications.
 
 import { loadAudioPrefs, saveAudioPrefs } from "../../audio-prefs";
 import {
@@ -8,110 +9,92 @@ import {
   setNotificationsEnabled,
 } from "../../notifications";
 import { type VoiceClient } from "../../voice";
+import { MAX_VOLUME } from "../../voice/util";
+import { noiseFilterSupported } from "../../voice/voice-filters";
 import { renderConnectionTest } from "./connection-test";
-import { field, levelMeter, section } from "./widgets";
+import { group, levelMeter, row, selectRow, sliderRow, switchRow } from "./widgets";
 
 export function renderDevicesSection(container: HTMLElement, voiceClient: VoiceClient): () => void {
   const prefs = loadAudioPrefs();
 
-  const micField = field("Microphone");
   const micSelect = document.createElement("select");
-  micField.appendChild(micSelect);
+  const micRow = selectRow("Input device", micSelect);
   const micMeter = levelMeter();
-  micMeter.el.title = "Reacts live to your mic — confirms it's actually picking up sound";
-  micField.appendChild(micMeter.el);
 
-  const speakerField = field("Speaker");
-  const speakerRow = document.createElement("div");
-  speakerRow.className = "volume-row";
+  const inputVolume = sliderRow(
+    "Input volume",
+    prefs.inputVolume,
+    (value) => voiceClient.setInputVolume(value),
+    MAX_VOLUME,
+  );
+  inputVolume.el.appendChild(micMeter.el);
+
   const speakerSelect = document.createElement("select");
-  const testSpeakerBtn = document.createElement("button");
-  testSpeakerBtn.type = "button";
-  testSpeakerBtn.className = "secondary";
-  testSpeakerBtn.textContent = "Test";
-  testSpeakerBtn.title = "Play a short tone through this output";
-  speakerRow.append(speakerSelect, testSpeakerBtn);
-  speakerField.appendChild(speakerRow);
+  const speakerRow = selectRow("Output device", speakerSelect);
+
+  const outputVolume = sliderRow(
+    "Output volume",
+    prefs.outputVolume,
+    (value) => {
+      prefs.outputVolume = value;
+      saveAudioPrefs(prefs);
+      voiceClient.applyOutputPrefs();
+    },
+    MAX_VOLUME,
+  );
   const outputMeter = levelMeter();
-  outputMeter.el.title = "Pulses while the test tone plays — confirms sound is reaching this output";
-  speakerField.appendChild(outputMeter.el);
+  outputVolume.el.appendChild(outputMeter.el);
 
-  const volumeField = field("Output volume");
-  const volumeRow = document.createElement("div");
-  volumeRow.className = "volume-row";
-  const volumeSlider = document.createElement("input");
-  volumeSlider.type = "range";
-  volumeSlider.min = "0";
-  volumeSlider.max = "100";
-  volumeSlider.value = String(Math.round(prefs.outputVolume * 100));
-  const volumeReadout = document.createElement("span");
-  volumeReadout.className = "muted-text";
-  volumeReadout.textContent = `${volumeSlider.value}%`;
-  volumeRow.append(volumeSlider, volumeReadout);
-  volumeField.appendChild(volumeRow);
+  const testSpeakerRow = row({ label: "Play test sound", action: true, onClick: () => void testSpeaker() });
 
-  const inputVolumeField = field("Input volume");
-  const inputVolumeRow = document.createElement("div");
-  inputVolumeRow.className = "volume-row";
-  const inputVolumeSlider = document.createElement("input");
-  inputVolumeSlider.type = "range";
-  inputVolumeSlider.min = "0";
-  inputVolumeSlider.max = "100";
-  inputVolumeSlider.value = String(Math.round(prefs.inputVolume * 100));
-  const inputVolumeReadout = document.createElement("span");
-  inputVolumeReadout.className = "muted-text";
-  inputVolumeReadout.textContent = `${inputVolumeSlider.value}%`;
-  inputVolumeRow.append(inputVolumeSlider, inputVolumeReadout);
-  inputVolumeField.appendChild(inputVolumeRow);
+  function voiceFilterRow(label: string, key: "noiseFilter" | "studioVoice"): HTMLElement {
+    return switchRow(label, prefs[key], (next) => {
+      prefs[key] = next;
+      saveAudioPrefs(prefs);
+      voiceClient.applyVoiceFilters();
+    }).el;
+  }
+  const noiseFilterRow = noiseFilterSupported() ? voiceFilterRow("Noise filter", "noiseFilter") : null;
+  const studioVoiceRow = voiceFilterRow("Studio voice", "studioVoice");
 
-  const soundToggleRow = document.createElement("label");
-  soundToggleRow.className = "checkbox-row";
-  const soundToggle = document.createElement("input");
-  soundToggle.type = "checkbox";
-  soundToggle.checked = prefs.notificationSoundsEnabled;
-  soundToggleRow.append(soundToggle, document.createTextNode("Play a sound for new messages"));
-  soundToggle.addEventListener("change", () => {
-    prefs.notificationSoundsEnabled = soundToggle.checked;
+  const grantRow = row({
+    label: "Allow microphone access",
+    action: true,
+    onClick: async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach((t) => t.stop());
+        await populateDevices();
+        void startMicMeter(prefs.inputDeviceId);
+      } catch {
+        grantRow.setValue("Blocked by the browser");
+      }
+    },
+  });
+
+  const soundRow = switchRow("Message sounds", prefs.notificationSoundsEnabled, (next) => {
+    prefs.notificationSoundsEnabled = next;
     saveAudioPrefs(prefs);
   });
 
   // Notifications for calls, DMs and mentions, pushed even when closed (see notifications.ts).
-  const desktopRow = document.createElement("label");
-  desktopRow.className = "checkbox-row";
-  const desktopToggle = document.createElement("input");
-  desktopToggle.type = "checkbox";
-  desktopToggle.checked = notificationsEnabled();
-  desktopRow.append(
-    desktopToggle,
-    document.createTextNode("Notify me of calls, direct messages and mentions"),
-  );
-  const desktopHint = document.createElement("p");
-  desktopHint.className = "muted-text";
-  desktopHint.hidden = true;
-  desktopHint.setAttribute("aria-live", "polite");
-  if (!notificationsSupported()) {
-    desktopToggle.disabled = true;
-    desktopHint.textContent = needsHomeScreen()
-      ? "Add Chatly to the Home Screen first."
-      : "This browser doesn't support notifications.";
-    desktopHint.hidden = false;
-  }
-  desktopToggle.addEventListener("change", async () => {
-    const outcome = await setNotificationsEnabled(desktopToggle.checked);
-    desktopToggle.checked = outcome === "on";
-    desktopHint.hidden = outcome !== "denied";
-    if (outcome === "denied") {
-      desktopHint.textContent =
-        "The browser blocked notifications for this site. Allow them in its site settings, then try again.";
-    }
+  const pushRow = switchRow("Push notifications", notificationsEnabled(), async (next) => {
+    const outcome = await setNotificationsEnabled(next);
+    pushRow.input.checked = outcome === "on";
+    pushHint.hidden = outcome !== "denied";
+    if (outcome === "denied") pushHint.textContent = "Blocked in this browser's site settings.";
   });
-
-  const permissionHint = document.createElement("p");
-  permissionHint.className = "muted-text";
-
-  const grantBtn = document.createElement("button");
-  grantBtn.className = "secondary";
-  grantBtn.textContent = "Grant microphone access";
+  const pushHint = document.createElement("p");
+  pushHint.className = "settings-row-hint";
+  pushHint.hidden = true;
+  pushHint.setAttribute("aria-live", "polite");
+  if (!notificationsSupported()) {
+    pushRow.input.disabled = true;
+    pushHint.textContent = needsHomeScreen()
+      ? "Add Chatly to the Home Screen first."
+      : "Not supported in this browser.";
+    pushHint.hidden = false;
+  }
 
   // Live mic level meter: its own short-lived getUserMedia capture and
   // AnalyserNode, entirely separate from `voiceClient` (which only has
@@ -143,8 +126,8 @@ export function renderDevicesSection(container: HTMLElement, voiceClient: VoiceC
         audio: deviceId ? { deviceId: { exact: deviceId } } : true,
       });
     } catch {
-      // No permission (yet) — the meter just stays flat; the "Grant
-      // microphone access" flow above is what actually surfaces this.
+      // No permission (yet) — the meter just stays flat; the "Allow
+      // microphone access" row is what actually surfaces this.
       return;
     }
     meterAudioCtx = new AudioCtor();
@@ -205,7 +188,6 @@ export function renderDevicesSection(container: HTMLElement, voiceClient: VoiceC
       void ctx.close();
     }, 700);
   }
-  testSpeakerBtn.addEventListener("click", () => void testSpeaker());
 
   async function populateDevices(): Promise<boolean> {
     const devices = await navigator.mediaDevices.enumerateDevices();
@@ -213,38 +195,25 @@ export function renderDevicesSection(container: HTMLElement, voiceClient: VoiceC
     const outputs = devices.filter((d) => d.kind === "audiooutput");
     const hasLabels = inputs.some((d) => d.label) || outputs.some((d) => d.label);
 
-    permissionHint.hidden = hasLabels;
-    grantBtn.hidden = hasLabels;
+    grantRow.el.hidden = hasLabels;
 
     micSelect.replaceChildren(
-      ...defaultOption("System default"),
+      makeOption("", "System default"),
       ...inputs.map((d, i) => makeOption(d.deviceId, d.label || `Microphone ${i + 1}`)),
     );
     micSelect.value = prefs.inputDeviceId ?? "";
 
     if (typeof (HTMLMediaElement.prototype as { setSinkId?: unknown }).setSinkId === "function") {
       speakerSelect.replaceChildren(
-        ...defaultOption("System default"),
+        makeOption("", "System default"),
         ...outputs.map((d, i) => makeOption(d.deviceId, d.label || `Speaker ${i + 1}`)),
       );
       speakerSelect.value = prefs.outputDeviceId ?? "";
     } else {
-      speakerField.hidden = true;
+      speakerRow.hidden = true;
     }
     return hasLabels;
   }
-
-  grantBtn.addEventListener("click", async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach((t) => t.stop());
-      await populateDevices();
-      void startMicMeter(prefs.inputDeviceId);
-    } catch {
-      permissionHint.textContent = "Microphone access was denied — check your browser's site settings.";
-      permissionHint.hidden = false;
-    }
-  });
 
   micSelect.addEventListener("change", () => {
     prefs.inputDeviceId = micSelect.value || null;
@@ -259,32 +228,17 @@ export function renderDevicesSection(container: HTMLElement, voiceClient: VoiceC
     voiceClient.applyOutputPrefs();
   });
 
-  volumeSlider.addEventListener("input", () => {
-    volumeReadout.textContent = `${volumeSlider.value}%`;
-    prefs.outputVolume = Number(volumeSlider.value) / 100;
-    saveAudioPrefs(prefs);
-    voiceClient.applyOutputPrefs();
-  });
-
-  inputVolumeSlider.addEventListener("input", () => {
-    inputVolumeReadout.textContent = `${inputVolumeSlider.value}%`;
-    voiceClient.setInputVolume(Number(inputVolumeSlider.value) / 100);
-  });
-
   container.append(
-    section("Audio", micField, speakerField, volumeField, inputVolumeField, permissionHint, grantBtn),
+    group("Microphone", grantRow.el, micRow, inputVolume.el, noiseFilterRow, studioVoiceRow),
+    group("Speaker", speakerRow, outputVolume.el, testSpeakerRow.el),
     renderConnectionTest(),
-    section("Notifications", soundToggleRow, desktopRow, desktopHint),
+    group("Notifications", soundRow.el, pushRow.el, pushHint),
   );
   void populateDevices().then((hasLabels) => {
     if (hasLabels) void startMicMeter(prefs.inputDeviceId);
   });
 
   return stopMicMeter;
-}
-
-function defaultOption(label: string): HTMLOptionElement[] {
-  return [makeOption("", label)];
 }
 
 function makeOption(value: string, label: string): HTMLOptionElement {

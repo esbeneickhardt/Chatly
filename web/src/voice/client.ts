@@ -158,8 +158,9 @@ export class VoiceClient {
     this.channelId = channelId;
 
     try {
+      const prefs = loadAudioPrefs();
       this.localStream = await navigator.mediaDevices.getUserMedia({
-        audio: inputConstraints(loadAudioPrefs().inputDeviceId),
+        audio: inputConstraints(prefs.inputDeviceId, prefs.noiseFilter),
       });
     } catch {
       this.channelId = null;
@@ -404,6 +405,16 @@ export class VoiceClient {
     this.mic.setInputVolume(value);
   }
 
+  /** Applies the voice filter switches (`AudioPrefs.noiseFilter` /
+   * `studioVoice`) to an active call, live. */
+  applyVoiceFilters(): void {
+    const prefs = loadAudioPrefs();
+    for (const track of this.localStream?.getAudioTracks() ?? []) {
+      void track.applyConstraints(inputConstraints(prefs.inputDeviceId, prefs.noiseFilter)).catch(() => {});
+    }
+    this.mic.applyFilters();
+  }
+
   setRemoteVolume(key: string, value: number): void {
     const clamped = Math.min(MAX_REMOTE_VOLUME, Math.max(0, value));
     const prefs = loadAudioPrefs();
@@ -423,7 +434,9 @@ export class VoiceClient {
     if (!this.pc || !this.localStream) return;
     let newStream: MediaStream;
     try {
-      newStream = await navigator.mediaDevices.getUserMedia({ audio: inputConstraints(deviceId) });
+      newStream = await navigator.mediaDevices.getUserMedia({
+        audio: inputConstraints(deviceId, loadAudioPrefs().noiseFilter),
+      });
     } catch {
       this.onError?.("Couldn't switch to that microphone.");
       return;

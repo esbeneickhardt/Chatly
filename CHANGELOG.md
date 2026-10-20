@@ -8,6 +8,12 @@ finer-grained, per-request history of the UI work lives in
 ## [Unreleased]
 
 ### Added
+- **Voice filters** (Settings → Devices, both off by default): *Noise filter*
+  (RNNoise, run on your own device) takes out keyboard, fan and room noise;
+  *Studio voice* adds a rumble cut, a little presence and compression. Both
+  switch live during a call and only change how you sound to others.
+- **Input and output volume up to 200%** (Settings → Devices), for a quiet
+  phone mic or speaker; a limiter keeps the boost from distorting.
 - **Notifications with Chatly closed** (Web Push): calls, direct messages and
   mentions reach your phone or computer even when no Chatly window is open, as
   long as you aren't using Chatly elsewhere right then. Same switch as before
@@ -77,6 +83,12 @@ finer-grained, per-request history of the UI work lives in
   (Playwright), and CI covering format, lint, tests, and a scanned image.
 
 ### Changed
+- **Settings redesigned**: grouped lists with each value on the right; changing
+  a name, the password, two-factor or deleting the account opens a small dialog
+  (a bottom sheet on phones) instead of open text boxes. On a phone, Settings is
+  a menu that opens one page at a time with a back button; drag a page right to
+  go back, drag the menu right to close, drag a sheet down to cancel. Checkboxes are now
+  switches. The CSP allows `'wasm-unsafe-eval'` for the noise filter.
 - **Dependencies updated**: axum 0.8, tower-http 0.7, toml 1, infer 0.22, base64 0.23;
   web tooling on eslint 10, vitest 5 and jsdom 30. Building the web client now needs
   **Node 22.12+** (CI and the Docker build use Node 24).

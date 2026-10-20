@@ -24,9 +24,11 @@ use axum::response::Response;
 /// `font-src` needs `data:` too — KaTeX's own stylesheet embeds its
 /// fonts as base64 `data:` URIs rather than separate font files
 /// (confirmed live: without this, math rendering silently lost its
-/// glyphs under a `'self'`-only policy).
+/// glyphs under a `'self'`-only policy). `'wasm-unsafe-eval'` lets the
+/// optional RNNoise voice filter compile its (same-origin) WebAssembly;
+/// it allows no JavaScript `eval`.
 const CSP: &str = "default-src 'self'; \
-    script-src 'self'; \
+    script-src 'self' 'wasm-unsafe-eval'; \
     style-src 'self' 'unsafe-inline'; \
     img-src 'self' data: blob:; \
     media-src 'self' blob:; \

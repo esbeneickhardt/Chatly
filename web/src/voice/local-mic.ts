@@ -2,8 +2,16 @@
 // "input volume" can change live) and the "you're speaking" detector.
 // Split out of `VoiceClient`.
 
+import type { RnnoiseWorkletNode } from "@sapphi-red/web-noise-suppressor";
 import { loadAudioPrefs, saveAudioPrefs } from "../audio-prefs";
-import { SPEAKING_POLL_MS, SPEAKING_THRESHOLD } from "./util";
+import { MAX_VOLUME, SPEAKING_POLL_MS, SPEAKING_THRESHOLD } from "./util";
+import {
+  createNoiseFilter,
+  createStudioChain,
+  NOISE_FILTER_SAMPLE_RATE,
+  noiseFilterSupported,
+  type StudioChain,
+} from "./voice-filters";
 
 export interface LocalMicOptions {
   isMuted: () => boolean;
@@ -31,6 +39,15 @@ export class LocalMic {
   private inputGainNode: GainNode | null = null;
 
   private inputSourceNode: MediaStreamAudioSourceNode | null = null;
+
+  /** Optional filters between the source and `inputGainNode` (see
+   * `wireInput`). The RNNoise node loads asynchronously, so a call
+   * starts unfiltered and picks it up a moment later. */
+  private noiseFilterNode: RnnoiseWorkletNode | null = null;
+
+  private noiseFilterLoading: Promise<void> | null = null;
+
+  private studioChain: StudioChain | null = null;
 
   processedStream: MediaStream | null = null;
 
@@ -76,7 +93,8 @@ export class LocalMic {
   }
 
   /** Builds the mic-gain pipeline that feeds the outgoing audio
-   * transceiver: `stream` (raw device audio) -> `inputGainNode` ->
+   * transceiver: `stream` (raw device audio) -> optional filters (see
+   * `wireInput`) -> `inputGainNode` -> a limiter ->
    * `processedStream` (an `AudioContext` destination's stream). Doing
    * the gain adjustment ourselves, rather than relying on OS/hardware
    * mic boost, is what lets `setInputVolume` change it live without
@@ -91,20 +109,87 @@ export class LocalMic {
       this.processedStream = stream;
       return;
     }
-    this.inputAudioCtx = new AudioCtor();
+    this.inputAudioCtx = this.createInputContext(AudioCtor, stream);
     this.inputSourceNode = this.inputAudioCtx.createMediaStreamSource(stream);
     this.inputGainNode = this.inputAudioCtx.createGain();
     this.inputGainNode.gain.value = loadAudioPrefs().inputVolume;
+    // Input volume goes past 100% for a quiet (phone) mic; the limiter
+    // keeps that boost from clipping on loud words.
+    const limiter = this.inputAudioCtx.createDynamicsCompressor();
+    limiter.threshold.value = -3;
+    limiter.knee.value = 0;
+    limiter.ratio.value = 20;
+    limiter.attack.value = 0.002;
+    limiter.release.value = 0.12;
     const dest = this.inputAudioCtx.createMediaStreamDestination();
-    this.inputSourceNode.connect(this.inputGainNode).connect(dest);
+    this.inputGainNode.connect(limiter).connect(dest);
     this.processedStream = dest.stream;
+    this.applyFilters();
+  }
+
+  /** A 48 kHz context when the browser allows one, since RNNoise needs
+   * that rate. Some browsers (Firefox) refuse a mic source whose rate
+   * differs from the context's, so that falls back to the default rate
+   * and the noise filter simply stays out of the graph. */
+  private createInputContext(AudioCtor: typeof AudioContext, stream: MediaStream): AudioContext {
+    if (noiseFilterSupported()) {
+      try {
+        const ctx = new AudioCtor({ sampleRate: NOISE_FILTER_SAMPLE_RATE });
+        ctx.createMediaStreamSource(stream).disconnect();
+        return ctx;
+      } catch {
+        /* fall through to the default rate */
+      }
+    }
+    return new AudioCtor();
+  }
+
+  /** Re-reads the filter switches and rewires the graph to match, live,
+   * with no rejoin. */
+  applyFilters(): void {
+    const ctx = this.inputAudioCtx;
+    if (!ctx) return;
+    const prefs = loadAudioPrefs();
+    if (prefs.studioVoice && !this.studioChain) this.studioChain = createStudioChain(ctx);
+    if (prefs.noiseFilter && !this.noiseFilterNode && !this.noiseFilterLoading) {
+      this.noiseFilterLoading = createNoiseFilter(ctx).then((node) => {
+        this.noiseFilterLoading = null;
+        if (!node) return;
+        if (this.inputAudioCtx !== ctx) {
+          node.destroy();
+          return;
+        }
+        this.noiseFilterNode = node;
+        this.wireInput();
+      });
+    }
+    this.wireInput();
+  }
+
+  /** source -> [noise filter] -> [studio voice] -> gain -> destination. */
+  private wireInput(): void {
+    if (!this.inputSourceNode || !this.inputGainNode) return;
+    const prefs = loadAudioPrefs();
+    this.inputSourceNode.disconnect();
+    this.noiseFilterNode?.disconnect();
+    this.studioChain?.output.disconnect();
+    let tail: AudioNode = this.inputSourceNode;
+    if (prefs.noiseFilter && this.noiseFilterNode) {
+      tail.connect(this.noiseFilterNode);
+      tail = this.noiseFilterNode;
+    }
+    if (prefs.studioVoice && this.studioChain) {
+      tail.connect(this.studioChain.input);
+      tail = this.studioChain.output;
+    }
+    tail.connect(this.inputGainNode);
   }
 
   /** Live mic-gain adjustment — takes effect immediately, no rejoin
    * needed, since it just changes the gain node already sitting
    * between the mic and the outgoing track (see `buildInputGraph`). */
   setInputVolume(value: number): void {
-    const clamped = Math.min(1, Math.max(0, value));
+    const clamped = Math.min(MAX_VOLUME, Math.max(0, value));
     if (this.inputGainNode) this.inputGainNode.gain.value = clamped;
     const prefs = loadAudioPrefs();
     prefs.inputVolume = clamped;
@@ -119,7 +204,7 @@ export class LocalMic {
     if (!this.inputAudioCtx || !this.inputGainNode) return false;
     this.inputSourceNode?.disconnect();
     this.inputSourceNode = this.inputAudioCtx.createMediaStreamSource(newStream);
-    this.inputSourceNode.connect(this.inputGainNode);
+    this.wireInput();
     return true;
   }
 
@@ -128,6 +213,10 @@ export class LocalMic {
     this.inputSourceNode?.disconnect();
     this.inputSourceNode = null;
     this.inputGainNode = null;
+    this.noiseFilterNode?.destroy();
+    this.noiseFilterNode = null;
+    this.noiseFilterLoading = null;
+    this.studioChain = null;
     void this.inputAudioCtx?.close();
     this.inputAudioCtx = null;
     this.processedStream = null;
