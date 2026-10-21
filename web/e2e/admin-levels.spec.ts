@@ -13,13 +13,17 @@ test.describe("global admin vs. server admin", () => {
     const page = await openAs(browser, account);
     await page.locator("[title='Settings']").click();
     await page.locator(".settings-nav-item", { hasText: "Global admin" }).click();
-    await page.locator(".segmented button", { hasText: "All servers" }).click();
+    await page.locator(".segmented button", { hasText: "Servers" }).click();
 
-    const card = page.locator(".admin-server-card", { hasText: "Founders Club" });
-    await expect(card).toContainText("Owner Founder_ga");
-    await expect(card).toContainText("1 member");
-    await card.getByText("Members").click();
-    await expect(card.locator(".admin-server-detail")).toContainText("Server owner");
+    const row = page.locator(".entity-row", { hasText: "Founders Club" });
+    await expect(row).toContainText("Founder_ga");
+    await expect(row).toContainText("1 member");
+    await row.click();
+    const sheet = page.getByRole("dialog", { name: "Founders Club" });
+    await expect(sheet).toContainText(`@${founder.username}`);
+    await expect(sheet.getByRole("button", { name: "Change owner" })).toBeVisible();
+    await expect(sheet.getByRole("button", { name: "Delete server" })).toBeVisible();
+    await page.keyboard.press("Escape");
 
     // A server admin (or anyone else) has no Global admin tab at all.
     const outsider = await openAs(browser, founder);
@@ -50,8 +54,9 @@ test.describe("global admin vs. server admin", () => {
     await page.locator("[title='Manage server']").click();
     await page.locator(".settings-nav-item", { hasText: "Members" }).click();
 
-    const row = page.locator(".settings-content .session-row", { hasText: "Helper_sa" });
-    await row.getByText("Make admin").click();
+    const row = page.locator(".settings-content .entity-row", { hasText: "Helper_sa" });
+    await row.click();
+    await page.getByRole("dialog", { name: "Helper_sa" }).getByRole("button", { name: "Make admin" }).click();
     await page.getByRole("alertdialog").getByRole("button", { name: "Make admin" }).click();
     await expect(row).toContainText("Server admin");
     // Still on the Members tab after the refresh.
@@ -62,12 +67,14 @@ test.describe("global admin vs. server admin", () => {
     await helperPage.locator(".guild-rail [title='Promo Club']").first().click();
     await helperPage.locator("[title='Manage server']").click();
     await helperPage.locator(".settings-nav-item", { hasText: "Members" }).click();
-    const ownerRow = helperPage.locator(".settings-content .session-row", { hasText: "Founder_sa" });
-    await expect(ownerRow.getByRole("button")).toHaveCount(0);
+    // Nothing they may do to the owner: a plain row, not a button.
+    const ownerRow = helperPage.locator(".settings-content .entity-row", { hasText: "Founder_sa" });
+    await expect(ownerRow).toHaveJSProperty("tagName", "DIV");
+    await helperPage.locator(".settings-content .entity-row", { hasText: "Helper_sa" }).click();
     await expect(
       helperPage
-        .locator(".settings-content .session-row", { hasText: "Helper_sa" })
-        .getByText("Step down as admin"),
+        .getByRole("dialog", { name: "Helper_sa" })
+        .getByRole("button", { name: "Step down as admin" }),
     ).toBeVisible();
   });
 

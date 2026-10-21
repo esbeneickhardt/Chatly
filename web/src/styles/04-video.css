@@ -181,7 +181,7 @@ video:fullscreen {
   color: white;
   width: 24px;
   height: 24px;
-  border-radius: 5px;
+  border-radius: 9px;
 }
 
 .video-tile-controls .icon-button:hover {

@@ -2,8 +2,11 @@
 
 import { ApiError, type Channel, type User, api } from "../../api";
 import { icon } from "../../icons";
-import { confirmDialog, renderAvatarEl } from "../../ui";
-import { field, modalShell, pageTitle } from "./widgets";
+import { confirmDialog, renderAvatarEl, showNotice } from "../../ui";
+import { actionSheet, entityRow, type SheetAction } from "../settings/lists";
+import { openSettingsShell, type ShellTab } from "../settings/shell";
+import { group, row } from "../settings/widgets";
+import { field, modalShell } from "./widgets";
 
 export function renderCreateChannelModal(opts: {
   guildId: string;
@@ -88,221 +91,111 @@ type ManageChannelTab = "members" | "danger";
  * per-channel list. This dialog only edits who can see the channel and
  * deletes it. */
 export function renderManageChannelModal(opts: { channel: Channel; onDeleted: () => void }): void {
-  const backdrop = document.createElement("div");
-  backdrop.className = "modal-backdrop";
-  backdrop.addEventListener("click", (e) => {
-    if (e.target === backdrop) backdrop.remove();
-  });
-
-  const modal = document.createElement("div");
-  modal.className = "modal settings-modal";
-  backdrop.appendChild(modal);
-
-  const closeBtn = document.createElement("button");
-  closeBtn.className = "icon-button settings-close";
-  closeBtn.title = "Close";
-  closeBtn.setAttribute("aria-label", "Close");
-  closeBtn.appendChild(icon("x", 16));
-  closeBtn.addEventListener("click", () => backdrop.remove());
-  modal.appendChild(closeBtn);
-
-  const loadingText = document.createElement("p");
-  loadingText.className = "muted-text settings-loading";
-  loadingText.textContent = "Loading…";
-  modal.appendChild(loadingText);
-
-  document.body.appendChild(backdrop);
+  const shell = openSettingsShell<ManageChannelTab>({});
+  shell.setIdentity(renderAvatarEl(opts.channel.name, null), `#${opts.channel.name}`, "");
   void load();
 
-  function renderRow(user: User, onRemove: () => Promise<void>): HTMLElement {
-    const row = document.createElement("div");
-    row.className = "session-row";
-    const identity = document.createElement("div");
-    identity.className = "friend-identity";
-    identity.append(renderAvatarEl(user.display_name, user.avatar_file_id));
-    const name = document.createElement("span");
-    name.textContent = `${user.display_name} (@${user.username})`;
-    identity.appendChild(name);
-    row.appendChild(identity);
-    const removeBtn = document.createElement("button");
-    removeBtn.className = "secondary";
-    removeBtn.textContent = "Remove";
-    removeBtn.addEventListener("click", async () => {
-      const ok = await confirmDialog({
-        title: "Remove this person?",
-        message: `${user.display_name} will be removed from #${opts.channel.name}.`,
-        confirmLabel: "Remove",
-        danger: true,
-      });
-      if (!ok) return;
-      removeBtn.disabled = true;
-      await onRemove();
+  function memberRow(user: User): HTMLElement {
+    const remove: SheetAction = {
+      label: "Remove from channel",
+      danger: true,
+      run: async () => {
+        const ok = await confirmDialog({
+          title: "Remove this person?",
+          message: `${user.display_name} will be removed from #${opts.channel.name}.`,
+          confirmLabel: "Remove",
+          danger: true,
+        });
+        if (!ok) return;
+        try {
+          await api.del(`/api/channels/${opts.channel.id}/members/${user.id}`);
+          void load();
+        } catch (err) {
+          showNotice(err instanceof ApiError ? err.message : "Couldn't remove them.");
+        }
+      },
+    };
+    return entityRow({
+      avatar: renderAvatarEl(user.display_name, user.avatar_file_id),
+      name: user.display_name,
+      detail: `@${user.username}`,
+      onClick: () =>
+        actionSheet({
+          avatar: renderAvatarEl(user.display_name, user.avatar_file_id),
+          title: user.display_name,
+          detail: `@${user.username}`,
+          actions: [remove],
+        }),
     });
-    row.append(removeBtn);
-    return row;
   }
 
   async function load(): Promise<void> {
-    const roster = await api.get<ChannelRoster>(`/api/channels/${opts.channel.id}/roster`);
-    loadingText.remove();
-    modal.querySelector(".settings-body")?.remove();
-
-    const body = document.createElement("div");
-    body.className = "settings-body";
-    const nav = document.createElement("nav");
-    nav.className = "settings-nav";
-    const content = document.createElement("div");
-    content.className = "settings-content";
-    body.append(nav, content);
-    modal.appendChild(body);
-
-    const navIdentity = document.createElement("div");
-    navIdentity.className = "settings-nav-identity";
-    navIdentity.append(
+    let roster: ChannelRoster;
+    try {
+      roster = await api.get<ChannelRoster>(`/api/channels/${opts.channel.id}/roster`);
+    } catch {
+      showNotice("Couldn't load the channel settings.");
+      shell.close();
+      return;
+    }
+    shell.setIdentity(
       renderAvatarEl(opts.channel.name, null),
-      (() => {
-        const names = document.createElement("div");
-        const nameEl = document.createElement("div");
-        nameEl.className = "settings-nav-identity-name";
-        nameEl.textContent = `#${opts.channel.name}`;
-        const countEl = document.createElement("div");
-        countEl.className = "settings-nav-identity-username";
-        countEl.textContent = `${roster.members.length} member${roster.members.length === 1 ? "" : "s"}`;
-        names.append(nameEl, countEl);
-        return names;
-      })(),
+      `#${opts.channel.name}`,
+      `${roster.members.length} member${roster.members.length === 1 ? "" : "s"}`,
     );
-    nav.appendChild(navIdentity);
 
-    const tabs: {
-      id: ManageChannelTab;
-      label: string;
-      iconName: Parameters<typeof icon>[0];
-      panel: HTMLElement;
-      caution?: boolean;
-    }[] = [];
+    const page = (nodes: HTMLElement[]) => (c: HTMLElement) => void c.append(...nodes);
+    const tabs: ShellTab<ManageChannelTab>[] = [];
 
     if (opts.channel.restricted) {
-      const membersList = document.createElement("div");
-      for (const member of roster.members) {
-        membersList.appendChild(
-          renderRow(member, async () => {
-            await api.del(`/api/channels/${opts.channel.id}/members/${member.id}`);
+      const add = row({
+        label: "Add a member",
+        action: true,
+        onClick: () =>
+          renderUserPicker(async (user) => {
+            await api.post(`/api/channels/${opts.channel.id}/members`, { user_id: user.id });
             void load();
           }),
-        );
-      }
-      const addMemberBtn = document.createElement("button");
-      addMemberBtn.className = "secondary";
-      addMemberBtn.textContent = "Add a member";
-      addMemberBtn.addEventListener("click", () => {
-        renderUserPicker(async (user) => {
-          await api.post(`/api/channels/${opts.channel.id}/members`, { user_id: user.id });
-          void load();
-        });
       });
       tabs.push({
         id: "members",
         label: "Members",
         iconName: "users",
-        panel: pageTitle("Members", membersList, addMemberBtn),
+        render: page([group(null, add.el), group(null, ...roster.members.map(memberRow))]),
       });
     }
 
-    const deleteStartBtn = document.createElement("button");
-    deleteStartBtn.type = "button";
-    deleteStartBtn.className = "danger";
-    deleteStartBtn.textContent = "Delete Channel";
-
-    function buildDeletePanel(): HTMLElement {
-      const panel = document.createElement("div");
-      panel.className = "reveal-panel";
-
-      const hint = document.createElement("p");
-      hint.className = "muted-text";
-      hint.textContent = `Deletes #${opts.channel.name} and every message in it. This can't be undone.`;
-
-      const error = document.createElement("p");
-      error.className = "error-text";
-      error.hidden = true;
-
-      const cancelBtn = document.createElement("button");
-      cancelBtn.type = "button";
-      cancelBtn.className = "secondary";
-      cancelBtn.textContent = "Cancel";
-      cancelBtn.addEventListener("click", () => panel.replaceWith(deleteStartBtn));
-
-      const confirmBtn = document.createElement("button");
-      confirmBtn.type = "button";
-      confirmBtn.className = "danger";
-      confirmBtn.textContent = "Delete Channel";
-      confirmBtn.addEventListener("click", async () => {
+    // Red and set apart, like Log out/Danger in your own Settings: the
+    // one page here that deletes the channel outright.
+    const deleteRow = row({
+      label: "Delete channel",
+      danger: true,
+      onClick: async () => {
         const ok = await confirmDialog({
           title: "Delete this channel?",
           message: `#${opts.channel.name} and every message in it will be gone for good.`,
-          confirmLabel: "Delete Channel",
+          confirmLabel: "Delete channel",
           danger: true,
         });
-        if (!ok) return;
-        error.hidden = true;
-        confirmBtn.disabled = true;
         const guildId = opts.channel.guild_id;
-        if (!guildId) return;
+        if (!ok || !guildId) return;
         try {
           await api.del(`/api/guilds/${guildId}/channels/${opts.channel.id}`);
-          backdrop.remove();
+          shell.close();
           opts.onDeleted();
         } catch (err) {
-          error.textContent = err instanceof ApiError ? err.message : "Couldn't delete the channel.";
-          error.hidden = false;
-          confirmBtn.disabled = false;
+          showNotice(err instanceof ApiError ? err.message : "Couldn't delete the channel.");
         }
-      });
-
-      const actions = document.createElement("div");
-      actions.className = "reveal-panel-actions";
-      actions.append(cancelBtn, confirmBtn);
-      panel.append(hint, actions, error);
-      return panel;
-    }
-    deleteStartBtn.addEventListener("click", () => deleteStartBtn.replaceWith(buildDeletePanel()));
-
-    // Red-tinted and set apart from the rest, same treatment (and same
-    // reason) as Logout/Danger in the user's own Settings menu — see
-    // settings.ts — this is the one tab here that deletes the channel
-    // outright, not "just another settings pane."
+      },
+    });
     tabs.push({
       id: "danger",
       label: "Danger Zone",
       iconName: "trash",
-      panel: pageTitle("Danger Zone", deleteStartBtn),
       caution: true,
+      render: page([group(null, deleteRow.el)]),
     });
-
-    function selectTab(tab: ManageChannelTab): void {
-      for (const btn of Array.from(nav.children)) {
-        (btn as HTMLElement).classList.toggle("active", (btn as HTMLElement).dataset.tab === tab);
-      }
-      for (const t of tabs) {
-        t.panel.hidden = t.id !== tab;
-      }
-    }
-
-    const firstCautionId = tabs.find((t) => t.caution)?.id;
-    const navButtons = tabs.map((tab) => {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      let className = tab.caution ? "settings-nav-item caution" : "settings-nav-item";
-      if (tab.id === firstCautionId) className += " caution-first";
-      btn.className = className;
-      btn.dataset.tab = tab.id;
-      btn.append(icon(tab.iconName, 15), document.createTextNode(tab.label));
-      btn.addEventListener("click", () => selectTab(tab.id));
-      return btn;
-    });
-    nav.append(...navButtons);
-    content.replaceChildren(...tabs.map((t) => t.panel));
-    selectTab(tabs[0].id);
+    shell.setTabs(tabs);
   }
 
   function renderUserPicker(onPick: (user: User) => void): void {

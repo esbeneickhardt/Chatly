@@ -8,6 +8,16 @@ finer-grained, per-request history of the UI work lives in
 ## [Unreleased]
 
 ### Added
+- **A microphone nobody can hear is no longer silent about it.** Joining a
+  call with the mic blocked still joins (listening only) instead of failing;
+  a red banner says why nobody can hear you (blocked, stopped mid-call,
+  sending pure silence like Android's microphone switch, or audio not started
+  yet) with *Try again*, which plugs the mic in without rejoining. Everyone
+  else in the call sees a red mic on your avatar until it's fixed (gateway
+  op 13, `VOICE_MIC_PROBLEM`).
+- **An offer to turn on notifications** on every device that hasn't: without
+  them a phone can't ring for a call while Chatly isn't open on screen.
+  *Not now* waits a week.
 - **Voice filters** (Settings → Devices, both off by default): *Noise filter*
   (RNNoise, run on your own device) takes out keyboard, fan and room noise;
   *Studio voice* adds a rumble cut, a little presence and compression. Both
@@ -83,11 +93,24 @@ finer-grained, per-request history of the UI work lives in
   (Playwright), and CI covering format, lint, tests, and a scanned image.
 
 ### Changed
+- **Roles** as rows (who has each and its position); tapping one opens People
+  (search and switches, saved as you go), Permissions (switches and position)
+  or Delete. Creating a role asks only for a name, then picks its people.
+- **Server and channel settings** use the same shell as your own Settings
+  (a sheet with a menu, pages, back gesture and swipes on phones). Server
+  name, transfer, delete and leave are rows that open a dialog; members are
+  rows that open what you may do to them.
+- **Global admin** without the explanations: short tabs (Accounts, Servers,
+  Activity, App icon) you can also swipe between, accounts and servers as rows that open an action sheet
+  (reset password, delete, change owner), names cut off instead of spilling.
+- **Rounder corners** throughout (buttons, inputs, cards, dialogs, meters).
 - **Settings redesigned**: grouped lists with each value on the right; changing
   a name, the password, two-factor or deleting the account opens a small dialog
   (a bottom sheet on phones) instead of open text boxes. On a phone, Settings is
-  a menu that opens one page at a time with a back button; drag a page right to
-  go back, drag the menu right to close, drag a sheet down to cancel. Checkboxes are now
+  a sheet (rounded top, grab handle, no close button) with a menu that opens one
+  page at a time: drag the sheet down or the menu right to close it, drag a page
+  right to go back, and the phone's own back button or gesture steps out one
+  layer at a time. Checkboxes are now
   switches. The CSP allows `'wasm-unsafe-eval'` for the noise filter.
 - **Dependencies updated**: axum 0.8, tower-http 0.7, toml 1, infer 0.22, base64 0.23;
   web tooling on eslint 10, vitest 5 and jsdom 30. Building the web client now needs

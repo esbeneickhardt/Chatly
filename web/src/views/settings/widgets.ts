@@ -3,6 +3,7 @@
 // form dialog that only appears once something is actually edited.
 
 import { ApiError } from "../../api";
+import { pushBackLayer } from "../../back-stack";
 import { icon } from "../../icons";
 
 export function field(labelText: string): HTMLDivElement {
@@ -204,6 +205,9 @@ export function formDialog(opts: {
   content: Node[];
   submitLabel: string;
   danger?: boolean;
+  /** Put the cursor in the first field (default). Off for a dialog of
+   * switches, where it would only pop up a phone's keyboard. */
+  focusField?: boolean;
   onSubmit: (dialog: FormDialog) => Promise<string | null | undefined>;
 }): FormDialog {
   const previouslyFocused = document.activeElement as HTMLElement | null;
@@ -243,7 +247,10 @@ export function formDialog(opts: {
   actions.className = "modal-actions";
   actions.append(cancelBtn, submitBtn);
 
-  modal.append(title, body, error, actions);
+  const grabber = document.createElement("div");
+  grabber.className = "sheet-grabber";
+  grabber.setAttribute("aria-hidden", "true");
+  modal.append(grabber, title, body, error, actions);
   backdrop.appendChild(modal);
 
   function onKeyDown(e: KeyboardEvent): void {
@@ -253,10 +260,16 @@ export function formDialog(opts: {
       close();
     }
   }
-  function close(): void {
+  function closeUi(): void {
     document.removeEventListener("keydown", onKeyDown, true);
     backdrop.remove();
     previouslyFocused?.focus?.();
+  }
+  // The phone's back button/gesture cancels it too.
+  const releaseBack = pushBackLayer(closeUi);
+  function close(): void {
+    closeUi();
+    releaseBack();
   }
 
   const dialog: FormDialog = {
@@ -297,7 +310,8 @@ export function formDialog(opts: {
     onDismiss: close,
     canStart: () => modal.scrollTop <= 0,
   });
-  (modal.querySelector<HTMLElement>("input, select") ?? submitBtn).focus();
+  const firstField = (opts.focusField ?? true) ? modal.querySelector<HTMLElement>("input, select") : null;
+  (firstField ?? submitBtn).focus();
   return dialog;
 }
 
@@ -341,7 +355,7 @@ export function dragToDismiss(opts: {
   axis: "x" | "y";
   onDismiss: () => void;
   /** Extra gate, checked as the touch starts (e.g. "scrolled to the top"). */
-  canStart?: () => boolean;
+  canStart?: (target: HTMLElement) => boolean;
   /** Called with 0..1 while dragging, for a fading backdrop. */
   onProgress?: (progress: number) => void;
 }): void {
@@ -365,8 +379,8 @@ export function dragToDismiss(opts: {
       state = "idle";
       if (e.touches.length !== 1 || !window.matchMedia(PHONE_QUERY).matches) return;
       const target = e.target as HTMLElement;
-      if (target.closest("input, select, textarea")) return;
-      if (opts.canStart && !opts.canStart()) return;
+      if (target.closest("input, select, textarea, .segmented")) return;
+      if (opts.canStart && !opts.canStart(target)) return;
       startX = e.touches[0].clientX;
       startY = e.touches[0].clientY;
       startTime = performance.now();

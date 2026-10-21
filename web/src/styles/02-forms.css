@@ -183,7 +183,7 @@
 .guild-icon {
   width: 48px;
   height: 48px;
-  border-radius: 16px;
+  border-radius: 18px;
   background: var(--bg-elevated);
   color: var(--text);
   display: flex;

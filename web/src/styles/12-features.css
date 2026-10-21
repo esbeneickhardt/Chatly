@@ -297,3 +297,156 @@ button.dm-friend-stub .avatar {
     gap: 0.15rem;
   }
 }
+
+/* The offer to turn on notifications (views/chat/notify-prompt.ts). */
+.notify-prompt {
+  position: fixed;
+  right: 1.25rem;
+  /* Above the composer, so it never covers Send. */
+  bottom: calc(6rem + env(safe-area-inset-bottom));
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: min(420px, calc(100vw - 2rem));
+  padding: 0.85rem 0.85rem 0.85rem 1rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 16px 40px -16px rgba(0, 0, 0, 0.7);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.notify-prompt > svg {
+  flex-shrink: 0;
+  color: var(--accent-text);
+}
+
+.notify-prompt-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.notify-prompt-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.4rem;
+}
+
+.notify-prompt-actions button {
+  padding: 0.45rem 0.8rem;
+  font-size: 0.82rem;
+}
+
+@media (max-width: 768px) {
+  .notify-prompt {
+    left: 1rem;
+    right: 1rem;
+    bottom: calc(5rem + env(safe-area-inset-bottom));
+    max-width: none;
+    flex-wrap: wrap;
+  }
+
+  .notify-prompt-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+/* Global admin → App icon: one tile per choice. */
+.app-icon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  gap: 0.75rem;
+}
+
+.app-icon-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.9rem 0.5rem 0.75rem;
+  background: var(--bg-elevated);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.app-icon-tile img {
+  width: 72px;
+  height: 72px;
+  border-radius: 22%;
+}
+
+.settings-content .app-icon-tile {
+  margin: 0;
+  padding: 0.9rem 0.5rem 0.75rem;
+}
+
+.app-icon-tile:hover {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+}
+
+.app-icon-tile.selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* A segmented control spanning its container (Global admin): equal
+   segments, scrolling sideways rather than wrapping if it can't fit. */
+.segmented-fill {
+  display: flex;
+  width: 100%;
+  margin-top: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  box-sizing: border-box;
+}
+
+.segmented-fill button {
+  flex: 1 0 auto;
+  white-space: nowrap;
+  padding: 0.5rem 0.75rem;
+}
+
+.settings-content .segmented-fill button {
+  margin: 0;
+}
+
+/* Global admin: a tab swiped into view slides in from that side. */
+.slide-from-right {
+  animation: slide-from-right 0.2s ease;
+}
+
+.slide-from-left {
+  animation: slide-from-left 0.2s ease;
+}
+
+@keyframes slide-from-right {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+}
+
+@keyframes slide-from-left {
+  from {
+    opacity: 0;
+    transform: translateX(-28px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slide-from-right,
+  .slide-from-left {
+    animation: none;
+  }
+}
+
+[data-swipe-tabs] {
+  min-height: 60vh;
+  touch-action: pan-y;
+}

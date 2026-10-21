@@ -1,8 +1,12 @@
-// Server settings → Roles: permission names and the role editor.
+// Server settings → Roles: one row per role; tapping it opens what can be
+// changed (who has it, its permissions and position, deleting it), each in
+// its own dialog. Creating a role asks only for a name, then goes straight
+// to choosing who gets it.
 
 import { ApiError, type Guild, type Role, type User, api } from "../../api";
-import { confirmDialog } from "../../ui";
-import { field, section } from "./widgets";
+import { confirmDialog, showNotice } from "../../ui";
+import { actionSheet, type SheetAction } from "../settings/lists";
+import { errorMessage, field, formDialog, group, row, switchRow, textField } from "../settings/widgets";
 
 /** Every grantable bit from `protocol::permissions::Permissions`
  * (Rust) — kept in sync by hand since bitflags has no JSON schema to
@@ -29,7 +33,7 @@ export const PERMISSION_NAMES = [
 export const PERMISSION_LABELS: Record<string, string> = {
   VIEW_CHANNEL: "View channels",
   SEND_MESSAGES: "Send messages",
-  MANAGE_MESSAGES: "Manage messages (delete others')",
+  MANAGE_MESSAGES: "Manage messages",
   MANAGE_CHANNELS: "Manage channels",
   MANAGE_ROLES: "Manage roles",
   MANAGE_GUILD: "Manage server",
@@ -39,7 +43,7 @@ export const PERMISSION_LABELS: Record<string, string> = {
   CONNECT: "Connect to voice",
   SPEAK: "Speak in voice",
   MUTE_MEMBERS: "Mute members",
-  ADMINISTRATOR: "Server admin (full access, bypasses everything else)",
+  ADMINISTRATOR: "Server admin",
 };
 
 /** `Permissions` (Rust, via `bitflags`' own serde impl) round-trips
@@ -59,300 +63,215 @@ export function joinPermissions(set: Set<string>): string {
   return Array.from(set).join(" | ");
 }
 
-export function renderPermissionChecklist(initial: Set<string>): {
-  el: HTMLElement;
-  get: () => Set<string>;
-} {
-  const wrap = document.createElement("div");
-  wrap.className = "role-permission-grid";
-  const boxes: HTMLInputElement[] = [];
-  for (const permName of PERMISSION_NAMES) {
-    const row = document.createElement("label");
-    row.className = "toggle-row";
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.checked = initial.has(permName);
-    checkbox.dataset.perm = permName;
-    const slider = document.createElement("span");
-    slider.className = "toggle-slider";
-    const text = document.createElement("span");
-    text.textContent = PERMISSION_LABELS[permName] ?? permName;
-    row.append(checkbox, slider, text);
-    wrap.appendChild(row);
-    boxes.push(checkbox);
-  }
-  return {
-    el: wrap,
-    get: () => new Set(boxes.filter((b) => b.checked).map((b) => b.dataset.perm as string)),
-  };
-}
-
 /** Custom roles and per-server permission overwrites — see
  * `api::roles` (Rust) for the full model (role hierarchy, the
  * "can't grant what you don't have" guard, etc.); this surfaces role
  * CRUD and member assignment. Channel-level overwrites don't have a
- * UI yet — they're reachable via the API `api::roles` exposes, same
- * as bots shipped API-first with no UI in an earlier batch. */
+ * UI yet — they're reachable via the API `api::roles` exposes. */
 export function renderRolesSection(
   guild: Guild,
   members: User[],
   roles: Role[],
   memberRoleIds: Map<string, Set<string>>,
 ): HTMLElement[] {
-  const sections: HTMLElement[] = [];
-  const list = document.createElement("div");
+  const holders = (role: Role): number =>
+    members.filter((m) => memberRoleIds.get(m.id)?.has(role.id) ?? false).length;
+  const isEveryone = (role: Role): boolean => role.id === guild.id;
+  const describe = (role: Role): string => {
+    const n = holders(role);
+    const who = isEveryone(role) ? "Everyone" : `${n} ${n === 1 ? "person" : "people"}`;
+    return `${who} · position ${role.position}`;
+  };
 
-  /** Draws one role's row and returns its Assign button (none for @everyone). */
-  function renderRoleRow(role: Role): HTMLButtonElement | null {
-    const isEveryone = role.id === guild.id;
-    const row = document.createElement("div");
-    row.className = "session-row";
+  const listCard = group(`Roles · ${roles.length}`);
+  const card = listCard.querySelector<HTMLElement>(".settings-card");
+  const title = listCard.querySelector<HTMLElement>(".settings-group-title");
+  const refreshTitle = (): void => {
+    if (title) title.textContent = `Roles · ${roles.length}`;
+  };
 
-    const identity = document.createElement("div");
-    identity.className = "friend-identity";
-    const name = document.createElement("span");
-    name.textContent = isEveryone ? "@everyone" : role.name;
-    identity.appendChild(name);
-    const posBadge = document.createElement("span");
-    posBadge.className = "session-badge";
-    posBadge.textContent = `position ${role.position}`;
-    identity.appendChild(posBadge);
-    const countBadge = document.createElement("span");
-    countBadge.className = "session-badge role-count-badge";
-    if (!isEveryone) identity.appendChild(countBadge);
-    row.appendChild(identity);
-
-    const actions = document.createElement("div");
-    const peopleBtn = document.createElement("button");
-    peopleBtn.type = "button";
-    peopleBtn.className = "secondary role-people-btn";
-    peopleBtn.textContent = "Assign";
-    peopleBtn.title = `Choose who has ${role.name}`;
-    peopleBtn.setAttribute("aria-label", `Assign people to ${role.name}`);
-    // Everyone has @everyone; there is nobody to assign it to.
-    if (!isEveryone) actions.appendChild(peopleBtn);
-    const editBtn = document.createElement("button");
-    editBtn.type = "button";
-    editBtn.className = "secondary";
-    editBtn.textContent = "Edit";
-    actions.appendChild(editBtn);
-    if (!isEveryone) {
-      const deleteBtn = document.createElement("button");
-      deleteBtn.type = "button";
-      deleteBtn.className = "secondary";
-      deleteBtn.textContent = "Delete";
-      deleteBtn.addEventListener("click", async () => {
-        const ok = await confirmDialog({
-          title: "Delete this role?",
-          message: `"${role.name}" will be removed from everyone who has it.`,
-          confirmLabel: "Delete",
-          danger: true,
-        });
-        if (!ok) return;
-        deleteBtn.disabled = true;
-        try {
-          await api.del(`/api/guilds/${guild.id}/roles/${role.id}`);
-          row.remove();
-        } catch (err) {
-          error.textContent = err instanceof ApiError ? err.message : "Couldn't delete that role.";
-          error.hidden = false;
-          deleteBtn.disabled = false;
-        }
-      });
-      actions.appendChild(deleteBtn);
-    }
-    row.appendChild(actions);
-
-    const error = document.createElement("p");
-    error.className = "error-text";
-    error.hidden = true;
-
-    const editPanel = document.createElement("div");
-    editPanel.className = "role-detail role-edit-panel";
-    editPanel.hidden = true;
-
-    const checklist = renderPermissionChecklist(parsePermissions(role.permissions));
-    editPanel.appendChild(checklist.el);
-
-    const positionField = field("Position (higher can manage lower)");
-    const positionInput = document.createElement("input");
-    positionInput.type = "number";
-    positionInput.value = String(role.position);
-    positionField.appendChild(positionInput);
-    if (!isEveryone) editPanel.appendChild(positionField);
-
-    const saveBtn = document.createElement("button");
-    saveBtn.type = "button";
-    saveBtn.textContent = "Save";
-    saveBtn.addEventListener("click", async () => {
-      error.hidden = true;
-      saveBtn.disabled = true;
-      try {
-        const updated = await api.patch<Role>(`/api/guilds/${guild.id}/roles/${role.id}`, {
-          permissions: joinPermissions(checklist.get()),
-          position: isEveryone ? undefined : Number(positionInput.value),
-        });
-        role.permissions = updated.permissions;
-        role.position = updated.position;
-        posBadge.textContent = `position ${role.position}`;
-      } catch (err) {
-        error.textContent = err instanceof ApiError ? err.message : "Couldn't save that role.";
-        error.hidden = false;
-      } finally {
-        saveBtn.disabled = false;
-      }
+  function roleRow(role: Role): { el: HTMLElement; refresh: () => void } {
+    const refresh = (): void => r.setValue(describe(role));
+    const r = row({
+      label: isEveryone(role) ? "@everyone" : role.name,
+      value: describe(role),
+      onClick: () => openRole(role, r.el, refresh),
     });
-    editPanel.appendChild(saveBtn);
-    editPanel.appendChild(error);
-
-    // Who has this role: its own panel, so handing a role to someone
-    // doesn't mean scrolling past every permission first.
-    const peoplePanel = document.createElement("div");
-    peoplePanel.className = "role-detail role-people-panel";
-    peoplePanel.hidden = true;
-    const peopleError = document.createElement("p");
-    peopleError.className = "error-text";
-    peopleError.hidden = true;
-
-    const assigned = (): number =>
-      members.filter((m) => memberRoleIds.get(m.id)?.has(role.id) ?? false).length;
-    const refreshPeopleLabel = (): void => {
-      const n = assigned();
-      countBadge.textContent = `${n} ${n === 1 ? "person" : "people"}`;
-    };
-    refreshPeopleLabel();
-
-    if (!isEveryone) {
-      const filter = document.createElement("input");
-      filter.type = "search";
-      filter.placeholder = "Find a member";
-      filter.setAttribute("aria-label", `Find a member to give ${role.name}`);
-      filter.autocomplete = "off";
-      peoplePanel.appendChild(filter);
-      const rows: { row: HTMLElement; member: User }[] = [];
-      for (const member of members) {
-        const memberRow = document.createElement("label");
-        memberRow.className = "toggle-row";
-        const checkbox = document.createElement("input");
-        checkbox.type = "checkbox";
-        checkbox.checked = memberRoleIds.get(member.id)?.has(role.id) ?? false;
-        const slider = document.createElement("span");
-        slider.className = "toggle-slider";
-        const label = document.createElement("span");
-        label.textContent = member.display_name;
-        memberRow.append(checkbox, slider, label);
-        checkbox.addEventListener("change", async () => {
-          checkbox.disabled = true;
-          peopleError.hidden = true;
-          try {
-            if (checkbox.checked) {
-              await api.post(`/api/guilds/${guild.id}/members/${member.id}/roles/${role.id}`);
-              const roleIds = memberRoleIds.get(member.id) ?? new Set<string>();
-              roleIds.add(role.id);
-              memberRoleIds.set(member.id, roleIds);
-            } else {
-              await api.del(`/api/guilds/${guild.id}/members/${member.id}/roles/${role.id}`);
-              memberRoleIds.get(member.id)?.delete(role.id);
-            }
-            refreshPeopleLabel();
-          } catch (err) {
-            checkbox.checked = !checkbox.checked;
-            peopleError.textContent =
-              err instanceof ApiError ? err.message : "Couldn't update that member's roles.";
-            peopleError.hidden = false;
-          } finally {
-            checkbox.disabled = false;
-          }
-        });
-        rows.push({ row: memberRow, member });
-        peoplePanel.appendChild(memberRow);
-      }
-      filter.addEventListener("input", () => {
-        const q = filter.value.trim().toLowerCase();
-        for (const { row: memberRow, member } of rows) {
-          memberRow.hidden =
-            q !== "" && !`${member.display_name} ${member.username}`.toLowerCase().includes(q);
-        }
-      });
-      peoplePanel.appendChild(peopleError);
-    }
-
-    // One panel open at a time; the button that opened it closes it again.
-    const panels: [HTMLButtonElement, HTMLElement][] = [
-      [peopleBtn, peoplePanel],
-      [editBtn, editPanel],
-    ];
-    for (const [btn, panel] of panels) {
-      panel.id = `role-panel-${role.id}-${btn === peopleBtn ? "people" : "edit"}`;
-      btn.setAttribute("aria-controls", panel.id);
-      btn.setAttribute("aria-expanded", "false");
-      btn.addEventListener("click", () => {
-        const opening = panel.hidden;
-        for (const [otherBtn, otherPanel] of panels) {
-          otherPanel.hidden = otherPanel !== panel || !opening;
-          otherBtn.setAttribute("aria-expanded", String(!otherPanel.hidden));
-          if (otherBtn === editBtn) otherBtn.textContent = otherPanel.hidden ? "Edit" : "Close";
-        }
-        if (btn === peopleBtn) refreshPeopleLabel();
-      });
-    }
-    const detail = document.createElement("div");
-    detail.append(peoplePanel, editPanel);
-
-    list.append(row, detail);
-    return isEveryone ? null : peopleBtn;
+    r.el.classList.add("role-row");
+    r.el.dataset.roleId = role.id;
+    return { el: r.el, refresh };
   }
 
-  for (const role of roles) renderRoleRow(role);
-  sections.push(section("Roles", list));
-
-  const createWrap = document.createElement("div");
-  const nameField = field("New role name");
-  const nameInput = document.createElement("input");
-  nameInput.type = "text";
-  nameInput.placeholder = "Moderator";
-  nameField.appendChild(nameInput);
-  createWrap.appendChild(nameField);
-
-  const createChecklist = renderPermissionChecklist(new Set());
-  createWrap.appendChild(createChecklist.el);
-
-  const createError = document.createElement("p");
-  createError.className = "error-text";
-  createError.hidden = true;
-
-  const createBtn = document.createElement("button");
-  createBtn.type = "button";
-  createBtn.textContent = "Create role";
-  createBtn.addEventListener("click", async () => {
-    const trimmed = nameInput.value.trim();
-    if (!trimmed) {
-      createError.textContent = "Give the role a name first.";
-      createError.hidden = false;
-      return;
-    }
-    createError.hidden = true;
-    createBtn.disabled = true;
-    try {
-      const role = await api.post<Role>(`/api/guilds/${guild.id}/roles`, {
-        name: trimmed,
-        permissions: joinPermissions(createChecklist.get()),
+  function openRole(role: Role, rowEl: HTMLElement, refresh: () => void): void {
+    const name = isEveryone(role) ? "@everyone" : role.name;
+    const actions: SheetAction[] = [];
+    if (!isEveryone(role)) actions.push({ label: "People", run: () => editPeople(role, refresh) });
+    actions.push({ label: "Permissions", run: () => editPermissions(role, refresh) });
+    if (!isEveryone(role)) {
+      actions.push({
+        label: "Delete role",
+        danger: true,
+        run: async () => {
+          const ok = await confirmDialog({
+            title: `Delete ${role.name}?`,
+            message: "It's taken away from everyone who has it.",
+            confirmLabel: "Delete",
+            danger: true,
+          });
+          if (!ok) return;
+          try {
+            await api.del(`/api/guilds/${guild.id}/roles/${role.id}`);
+            roles.splice(roles.indexOf(role), 1);
+            rowEl.remove();
+            refreshTitle();
+          } catch (err) {
+            showNotice(errorMessage(err, "Couldn't delete that role."));
+          }
+        },
       });
-      roles.push(role);
-      // Create, then assign: open the new role's people straight away.
-      const assignBtn = renderRoleRow(role);
-      assignBtn?.click();
-      assignBtn?.scrollIntoView({ block: "center" });
-      nameInput.value = "";
-    } catch (err) {
-      createError.textContent = err instanceof ApiError ? err.message : "Couldn't create that role.";
-      createError.hidden = false;
-    } finally {
-      createBtn.disabled = false;
     }
-  });
-  createWrap.append(createBtn, createError);
-  sections.push(section("Create a role", createWrap));
+    const badge = document.createElement("div");
+    badge.className = "avatar role-avatar";
+    badge.textContent = "@";
+    actionSheet({ avatar: badge, title: name, detail: describe(role), actions });
+  }
 
-  return sections;
+  /** Who has the role: a switch per member, saved as it's flipped. */
+  function peopleContent(role: Role, refresh: () => void): HTMLElement[] {
+    const search = document.createElement("input");
+    search.type = "search";
+    search.placeholder = "Find a member";
+    search.autocomplete = "off";
+    search.setAttribute("aria-label", `Find a member to give ${role.name}`);
+    const list = document.createElement("div");
+    list.className = "settings-card role-people";
+    const rows = members.map((member) => {
+      const has = memberRoleIds.get(member.id)?.has(role.id) ?? false;
+      const sw = switchRow(member.display_name, has, async (next) => {
+        try {
+          if (next) {
+            await api.post(`/api/guilds/${guild.id}/members/${member.id}/roles/${role.id}`);
+            const ids = memberRoleIds.get(member.id) ?? new Set<string>();
+            ids.add(role.id);
+            memberRoleIds.set(member.id, ids);
+          } else {
+            await api.del(`/api/guilds/${guild.id}/members/${member.id}/roles/${role.id}`);
+            memberRoleIds.get(member.id)?.delete(role.id);
+          }
+          refresh();
+          return true;
+        } catch (err) {
+          showNotice(err instanceof ApiError ? err.message : "Couldn't update that member's roles.");
+          return false;
+        }
+      });
+      list.appendChild(sw.el);
+      return { el: sw.el, member };
+    });
+    search.addEventListener("input", () => {
+      const q = search.value.trim().toLowerCase();
+      for (const { el, member } of rows) {
+        el.hidden = q !== "" && !`${member.display_name} ${member.username}`.toLowerCase().includes(q);
+      }
+    });
+    return [search, list];
+  }
+
+  function editPeople(role: Role, refresh: () => void): void {
+    const dialog = formDialog({
+      title: `${role.name}: people`,
+      content: peopleContent(role, refresh),
+      submitLabel: "Done",
+      focusField: false,
+      onSubmit: async () => null,
+    });
+    dialog.actions.querySelector("button.secondary")?.remove();
+  }
+
+  /** What the role allows, and (except @everyone) where it ranks. */
+  function editPermissions(role: Role, refresh: () => void): void {
+    const granted = parsePermissions(role.permissions);
+    const list = document.createElement("div");
+    list.className = "settings-card";
+    for (const perm of PERMISSION_NAMES) {
+      const sw = switchRow(PERMISSION_LABELS[perm] ?? perm, granted.has(perm), (on) => {
+        if (on) granted.add(perm);
+        else granted.delete(perm);
+      });
+      sw.input.dataset.perm = perm;
+      list.appendChild(sw.el);
+    }
+    const content: HTMLElement[] = [];
+    let positionInput: HTMLInputElement | null = null;
+    if (!isEveryone(role)) {
+      const positionField = field("Position");
+      positionInput = document.createElement("input");
+      positionInput.type = "number";
+      positionInput.inputMode = "numeric";
+      positionInput.value = String(role.position);
+      positionField.appendChild(positionInput);
+      content.push(positionField);
+    }
+    content.push(list);
+    formDialog({
+      title: isEveryone(role) ? "@everyone" : role.name,
+      content,
+      submitLabel: "Save",
+      focusField: false,
+      onSubmit: async () => {
+        try {
+          const updated = await api.patch<Role>(`/api/guilds/${guild.id}/roles/${role.id}`, {
+            permissions: joinPermissions(granted),
+            position: positionInput ? Number(positionInput.value) : undefined,
+          });
+          role.permissions = updated.permissions;
+          role.position = updated.position;
+          refresh();
+          return null;
+        } catch (err) {
+          return errorMessage(err, "Couldn't save that role.");
+        }
+      },
+    });
+  }
+
+  card?.append(...roles.map((role) => roleRow(role).el));
+
+  const createRow = row({
+    label: "Create role",
+    action: true,
+    onClick: () => {
+      const { el, input } = textField("Name");
+      input.placeholder = "Moderator";
+      let created = false;
+      formDialog({
+        title: "New role",
+        content: [el],
+        submitLabel: "Create",
+        onSubmit: async (dialog) => {
+          if (created) return null;
+          const name = input.value.trim();
+          if (!name) return "Give the role a name.";
+          let role: Role;
+          try {
+            role = await api.post<Role>(`/api/guilds/${guild.id}/roles`, { name, permissions: "" });
+          } catch (err) {
+            return errorMessage(err, "Couldn't create that role.");
+          }
+          roles.push(role);
+          const added = roleRow(role);
+          card?.appendChild(added.el);
+          refreshTitle();
+          // Create, then assign: the same dialog moves on to who gets it.
+          created = true;
+          dialog.body.replaceChildren(...peopleContent(role, added.refresh));
+          dialog.actions.querySelector("button.secondary")?.remove();
+          dialog.submitBtn.textContent = "Done";
+          return undefined;
+        },
+      });
+    },
+  });
+
+  return [group(null, createRow.el), listCard];
 }

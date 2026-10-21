@@ -21,7 +21,7 @@ async function serverWith(founder: Account, name: string, others: Account[]): Pr
 }
 
 test.describe("roles", () => {
-  test("a role has its own Assign button, separate from Edit", async ({ browser }) => {
+  test("a role opens who has it, its permissions, and delete", async ({ browser }) => {
     const founder = await newUser("founder_rl");
     const helper = await newUser("helper_rl");
     const other = await newUser("other_rl");
@@ -38,29 +38,22 @@ test.describe("roles", () => {
     await page.locator("[title='Manage server']").click();
     await page.locator(".settings-nav-item", { hasText: "Roles" }).click();
 
-    const row = page.locator(".settings-content .session-row", { hasText: "Channel manager" });
-    const assign = row.getByRole("button", { name: "Assign people to Channel manager" });
-    await expect(assign).toHaveText("Assign");
-    await expect(row.getByRole("button", { name: "Edit" })).toBeVisible();
-    await expect(row.getByRole("button", { name: "Delete" })).toBeVisible();
-    await expect(row.locator(".role-count-badge")).toHaveText("0 people");
-    // @everyone has nobody to assign.
-    const everyone = page.locator(".settings-content .session-row", { hasText: "@everyone" });
-    await expect(everyone.getByRole("button", { name: /Assign/ })).toHaveCount(0);
+    const row = page.locator(".settings-content .role-row", { hasText: "Channel manager" });
+    await expect(row).toContainText("0 people");
+    await row.click();
+    const sheet = page.getByRole("dialog", { name: "Channel manager" });
+    await expect(sheet.getByRole("button", { name: "People" })).toBeVisible();
+    await expect(sheet.getByRole("button", { name: "Permissions" })).toBeVisible();
+    await expect(sheet.getByRole("button", { name: "Delete role" })).toBeVisible();
 
-    // Assign opens people only: no permission checklist to scroll past.
-    await assign.click();
-    const people = page.locator(`#role-panel-${role.body.id}-people`);
-    const editPanel = page.locator(`#role-panel-${role.body.id}-edit`);
-    await expect(people).toBeVisible();
-    await expect(editPanel).toBeHidden();
-    await expect(people.locator(".toggle-row")).toHaveCount(3);
-
-    // Filter, then assign.
+    // People: filter, then flip a switch; saved straight away.
+    await sheet.getByRole("button", { name: "People" }).click();
+    const people = page.getByRole("dialog", { name: "Channel manager: people" });
+    await expect(people.locator(".switch-row")).toHaveCount(3);
     await people.getByPlaceholder("Find a member").fill("helper");
-    await expect(people.locator(".toggle-row:visible")).toHaveCount(1);
-    await people.locator(".toggle-row", { hasText: "Helper_rl" }).click();
-    await expect(row.locator(".role-count-badge")).toHaveText("1 person");
+    await expect(people.locator(".switch-row:visible")).toHaveCount(1);
+    await people.locator(".switch-row", { hasText: "Helper_rl" }).click();
+    await expect(row).toContainText("1 person");
     const held = await call<{ id: string }[]>(
       "GET",
       `/api/guilds/${guild}/members/${helper.id}/roles`,
@@ -68,17 +61,32 @@ test.describe("roles", () => {
       founder,
     );
     expect(held.body.map((r) => r.id)).toContain(role.body.id);
+    await people.getByRole("button", { name: "Done" }).click();
 
-    // Edit swaps panels, and the people list is not in it.
-    await row.getByRole("button", { name: "Edit" }).click();
-    await expect(editPanel).toBeVisible();
-    await expect(people).toBeHidden();
-    await expect(editPanel.locator(".toggle-row").filter({ hasText: "Helper_rl" })).toHaveCount(0);
+    // Permissions: switches and Save.
+    await row.click();
+    await page
+      .getByRole("dialog", { name: "Channel manager" })
+      .getByRole("button", { name: "Permissions" })
+      .click();
+    const perms = page.getByRole("dialog", { name: "Channel manager" });
+    await perms.locator(".switch-row", { hasText: "Manage channels" }).click();
+    await perms.getByRole("button", { name: "Save" }).click();
+    await expect(perms).toHaveCount(0);
+    const roles = await call<{ id: string; permissions: string }[]>(
+      "GET",
+      `/api/guilds/${guild}/roles`,
+      undefined,
+      founder,
+    );
+    expect(roles.body.find((r) => r.id === role.body.id)?.permissions).toContain("MANAGE_CHANNELS");
 
-    // Un-assign from the people panel.
-    await assign.click();
-    await people.locator(".toggle-row", { hasText: "Helper_rl" }).click();
-    await expect(row.locator(".role-count-badge")).toHaveText("0 people");
+    // @everyone has nobody to assign and can't be deleted.
+    await page.locator(".settings-content .role-row", { hasText: "@everyone" }).click();
+    const everyone = page.getByRole("dialog", { name: "@everyone" });
+    await expect(everyone.getByRole("button", { name: "Permissions" })).toBeVisible();
+    await expect(everyone.getByRole("button", { name: "People" })).toHaveCount(0);
+    await expect(everyone.getByRole("button", { name: "Delete role" })).toHaveCount(0);
   });
 
   test("creating a role leads straight into assigning people to it", async ({ browser }) => {
@@ -91,19 +99,17 @@ test.describe("roles", () => {
     await page.locator("[title='Manage server']").click();
     await page.locator(".settings-nav-item", { hasText: "Roles" }).click();
 
-    await page.getByPlaceholder("Moderator").fill("Kicker");
-    await page.getByRole("button", { name: "Create role" }).click();
+    await page.locator(".settings-content .settings-row", { hasText: "Create role" }).click();
+    const dialog = page.getByRole("dialog", { name: "New role" });
+    await dialog.getByPlaceholder("Moderator").fill("Kicker");
+    await dialog.getByRole("button", { name: "Create" }).click();
 
-    // The new role's people are already open, ready to tick.
-    const row = page.locator(".settings-content .session-row", { hasText: "Kicker" });
-    await expect(row).toBeVisible();
-    await expect(row.getByRole("button", { name: "Assign people to Kicker" })).toHaveAttribute(
-      "aria-expanded",
-      "true",
-    );
-    const people = page.locator(".role-people-panel:visible");
-    await people.locator(".toggle-row", { hasText: "Helper_cr" }).click();
-    await expect(row.locator(".role-count-badge")).toHaveText("1 person");
+    // The same dialog now picks who gets it.
+    await dialog.locator(".switch-row", { hasText: "Helper_cr" }).click();
+    const row = page.locator(".settings-content .role-row", { hasText: "Kicker" });
+    await expect(row).toContainText("1 person");
+    await dialog.getByRole("button", { name: "Done" }).click();
+    await expect(dialog).toHaveCount(0);
 
     const roles = await call<{ id: string; name: string }[]>(
       "GET",
