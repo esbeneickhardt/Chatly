@@ -36,6 +36,7 @@ Frame: `{ "op": <int>, "d": <payload>, "s": <seq | null>, "t": <event | null> }`
 | 10 | Hello | S→C | Sent on connect: `{heartbeat_interval_ms}` (30 000) |
 | 11 | HeartbeatAck | S→C | Reply to Heartbeat |
 | 12 | Activity | C→S | `{active: bool}`: whether someone is using this page (in front, focused, touched in the last 3 minutes). Sent on connect and on every change; a user with any active connection gets no Web Push |
+| 13 | MicProblem | C→S | `{problem: bool}`: whether the people in your call can't hear you because of your microphone (blocked, gone, sending silence). Sent when it changes and again when someone joins; ignored when you aren't in a call |
 
 The server closes a connection that misses two heartbeat intervals.
 There is no event replay: after any reconnect the client gets a fresh
@@ -58,6 +59,7 @@ was published to.
 | `MESSAGE_UPDATE` | a message — also fired for reactions (the whole message is resent) | the guild / DM room |
 | `MESSAGE_DELETE` | `{ channel_id, message_id }` | the guild / DM room |
 | `VOICE_STATE_UPDATE` | `{ channel_id, user_id, connected }` | the guild / DM room; also replayed to one user added to a DM mid-call |
+| `VOICE_MIC_PROBLEM` | `{ channel_id, user_id, problem }` | the room of the call that person is in (op 13); a `VOICE_STATE_UPDATE` for them clears it |
 | `VOICE_SERVER_UPDATE` | `{ channel_id, sdp }` | the one connection (signalling reply, below) |
 | `PRESENCE_UPDATE` | `{ user_id, online }` | every room the user is in (only on their first / last connection) |
 | `FRIEND_REQUEST_CREATE` | a friend request | the recipient's user room |

@@ -37,6 +37,13 @@ export interface VoiceStateUpdate {
   connected: boolean;
 }
 
+/** Someone in a call you can see can't be heard because of their mic. */
+export interface VoiceMicProblem {
+  channel_id: string;
+  user_id: string;
+  problem: boolean;
+}
+
 /** Someone turned down an incoming call in a DM you're in. */
 export interface DmCallDeclinedEvent {
   channel_id: string;
@@ -68,6 +75,7 @@ type Listener = {
   message_delete: (data: MessageDeleteEvent) => void;
   voice_server_update: (data: VoiceServerUpdate) => void;
   voice_state_update: (data: VoiceStateUpdate) => void;
+  voice_mic_problem: (data: VoiceMicProblem) => void;
   /** Someone sent you a friend request. */
   friend_request_create: (request: FriendRequest) => void;
   /** A new DM channel now includes you — a request you sent/received
@@ -219,6 +227,13 @@ export class GatewayClient {
     });
   }
 
+  /** Sends op 13 (MicProblem): whether the people in your call can't
+   * hear you because of your microphone. The server passes it on to
+   * the call's room as `VOICE_MIC_PROBLEM`. */
+  sendMicProblem(problem: boolean): void {
+    if (this.socket?.readyState === WebSocket.OPEN) this.send({ op: 13, d: { problem } });
+  }
+
   /** Sends op 12 (Activity) when whether this page is in use has changed,
    * or always when `force` (a fresh connection starts out inactive). */
   private reportActivity(force = false): void {
@@ -263,6 +278,8 @@ export class GatewayClient {
           this.listeners.message_delete?.(frame.d as MessageDeleteEvent);
         } else if (frame.t === "VOICE_STATE_UPDATE") {
           this.listeners.voice_state_update?.(frame.d as VoiceStateUpdate);
+        } else if (frame.t === "VOICE_MIC_PROBLEM") {
+          this.listeners.voice_mic_problem?.(frame.d as VoiceMicProblem);
         } else if (frame.t === "FRIEND_REQUEST_CREATE") {
           this.listeners.friend_request_create?.(frame.d as FriendRequest);
         } else if (frame.t === "DM_CHANNEL_CREATE") {

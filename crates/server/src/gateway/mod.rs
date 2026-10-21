@@ -240,6 +240,11 @@ async fn handle_socket(mut socket: WebSocket, state: SharedState, user: User) {
                                     state.gateway.set_active(user.id, conn_id, active);
                                 }
                             }
+                            Some(13) => {
+                                if let Some(problem) = mic_problem_of(&text) {
+                                    report_mic_problem(&state, user.id, problem);
+                                }
+                            }
                             // Resume isn't implemented yet; tell the client to re-Identify.
                             Some(3)
                                 if send_frame(&mut socket, 9, serde_json::Value::Null, None, None)
@@ -345,6 +350,22 @@ async fn handle_socket(mut socket: WebSocket, state: SharedState, user: User) {
 fn activity_of(text: &str) -> Option<bool> {
     let value: serde_json::Value = serde_json::from_str(text).ok()?;
     value.get("d")?.get("active")?.as_bool()
+}
+
+fn mic_problem_of(text: &str) -> Option<bool> {
+    let value: serde_json::Value = serde_json::from_str(text).ok()?;
+    value.get("d")?.get("problem")?.as_bool()
+}
+
+/// Op 13: passes "this person's mic isn't reaching anyone" (or "it is
+/// again") on to everyone who can see the call they're in. Nothing to
+/// do when they aren't in one.
+fn report_mic_problem(state: &SharedState, user_id: Id, problem: bool) {
+    if let Some((channel_id, room)) = state.gateway.voice_state_of(user_id) {
+        state
+            .gateway
+            .publish(room, DispatchEvent::VoiceMicProblem { channel_id, user_id, problem });
+    }
 }
 
 /// Parses and applies an incoming op 4 (VoiceStateUpdate) frame:
@@ -482,6 +503,24 @@ async fn handle_voice_state_update(
             }
         }
         _ => {}
+    }
+}
+
+#[cfg(test)]
+mod mic_problem_tests {
+    use super::mic_problem_of;
+
+    #[test]
+    fn reads_the_flag() {
+        assert_eq!(mic_problem_of(r#"{"op":13,"d":{"problem":true}}"#), Some(true));
+        assert_eq!(mic_problem_of(r#"{"op":13,"d":{"problem":false}}"#), Some(false));
+    }
+
+    #[test]
+    fn ignores_anything_else() {
+        assert_eq!(mic_problem_of(r#"{"op":13,"d":{}}"#), None);
+        assert_eq!(mic_problem_of(r#"{"op":13,"d":{"problem":"yes"}}"#), None);
+        assert_eq!(mic_problem_of("not json"), None);
     }
 }
 

@@ -398,3 +398,83 @@
   gap: 0.5rem;
   margin: 0.35rem 0;
 }
+
+/* Someone the others can't hear because of their own microphone (see
+   views/chat/mic-problems.ts): a red mic on their avatar. */
+.mic-problem-badge {
+  display: none;
+}
+
+.mic-problem > .mic-problem-badge,
+.mic-problem .dm-call-avatar > .mic-problem-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--danger-fill);
+  color: white;
+}
+
+.dm-call-avatar {
+  position: relative;
+}
+
+.mic-problem .dm-call-avatar > .mic-problem-badge {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 26px;
+  height: 26px;
+  box-shadow: 0 0 0 3px var(--bg);
+}
+
+.dm-call-stage.compact .mic-problem .dm-call-avatar > .mic-problem-badge {
+  right: -2px;
+  bottom: -2px;
+  width: 16px;
+  height: 16px;
+}
+
+/* Your own mic warning, until it's fixed. */
+.mic-problem-banner {
+  position: fixed;
+  top: calc(0.75rem + env(safe-area-inset-top));
+  left: 50%;
+  z-index: 45;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: max-content;
+  max-width: calc(100vw - 2rem);
+  padding: 0.55rem 0.6rem 0.55rem 0.9rem;
+  background: var(--danger-fill);
+  color: white;
+  border-radius: var(--radius);
+  box-shadow: 0 12px 32px -12px rgba(0, 0, 0, 0.6);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.mic-problem-banner > svg {
+  flex-shrink: 0;
+}
+
+.mic-problem-banner-text {
+  min-width: 0;
+}
+
+.mic-problem-banner button {
+  flex-shrink: 0;
+  padding: 0.4rem 0.8rem;
+  background: rgba(255, 255, 255, 0.18);
+  color: white;
+  font-size: 0.82rem;
+}
+
+.mic-problem-banner button:hover {
+  background: rgba(255, 255, 255, 0.28);
+}

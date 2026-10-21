@@ -9,6 +9,7 @@ import { type ComposerActionsParts } from "./composer-actions";
 import { type ComposerDomParts } from "./composer-dom";
 import { type DirectMessagesParts } from "./direct-messages";
 import { type MessagesParts } from "./messages";
+import { setMicProblem } from "./mic-problems";
 import { type VoiceControlsParts } from "./voice-controls";
 import type { ChatState } from "./state";
 
@@ -36,7 +37,7 @@ export function wireLive(ctx: wireLiveContext) {
   const { channelLabelFor } = ctx.directMessages;
   const { closeMentionPopover, pickMention, sendCurrentMessage, updateMentionPopover } = ctx.composerActions;
   const { composer, jumpToPresentBtn } = ctx.composerDom;
-  const { gateway } = ctx.voiceControls;
+  const { gateway, voiceClient } = ctx.voiceControls;
 
   composer.addEventListener("keydown", (event) => {
     if (composerActions.mentionMatches.length > 0 && (event.key === "Enter" || event.key === "Tab")) {
@@ -110,6 +111,14 @@ export function wireLive(ctx: wireLiveContext) {
   // added to a call in progress is ever rung.
 
   gateway.on("voice_state_update", (data) => {
+    // A fresh join (or leave) resets what anyone knew about their mic;
+    // if it's still a problem they say so again right after. And
+    // someone new in *your* call hasn't heard about yours yet.
+    setMicProblem(data.user_id, false);
+    if (data.connected && data.user_id !== user.id && data.channel_id === voiceClient.currentChannelId) {
+      voiceClient.reannounceMicProblem();
+    }
     void state.dmsSync.then(() => ctx.handleVoiceStateUpdate(data));
   });
+  gateway.on("voice_mic_problem", (data) => setMicProblem(data.user_id, data.problem));
 }

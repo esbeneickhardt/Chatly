@@ -5,20 +5,18 @@
 import { loadAudioPrefs, saveAudioPrefs } from "../audio-prefs";
 import type { GatewayClient, VoiceServerUpdate } from "../gateway";
 import { LocalMic } from "./local-mic";
+import { MicStatus, type MicProblem } from "./mic-status";
 import { RemoteAudio } from "./remote-audio";
+import { RemoteVideo } from "./remote-video";
+import { ConnectionWatch } from "./connection-watch";
 import { captureScreen } from "./screen-capture";
 import { Signaling } from "./signaling";
 import {
   MAX_REMOTE_VOLUME,
-  CONNECT_FAILED_MESSAGE,
-  CONNECT_TIMEOUT_MS,
-  RECONNECT_GRACE_MS,
   addSendTransceiver,
   VOICE_ENCODING,
   getIceServers,
   inputConstraints,
-  splitVideoKey,
-  videoKey,
 } from "./util";
 
 /** Manages one voice-channel connection: local mic capture, the
@@ -38,13 +36,20 @@ export class VoiceClient {
   private readonly mic = new LocalMic({
     isMuted: () => this.muted,
     onSpeakingChange: (speaking) => this.onSpeakingChange?.(speaking),
+    onHealthChange: (health) => this.micStatus.setHealth(health),
+  });
+  private readonly micStatus = new MicStatus({
+    inCall: () => this.channelId !== null,
+    send: (problem) => this.gateway.sendMicProblem(problem),
+    onChange: (problem) => this.onMicProblemChange?.(problem),
   });
   private pc: RTCPeerConnection | null = null;
   private signaling: Signaling | null = null;
   private localStream: MediaStream | null = null;
   private channelId: string | null = null;
-  /** Keyed by `videoKey(userId, purpose)` — see that helper. */
-  private remoteVideoEls = new Map<string, HTMLVideoElement>();
+  private readonly remoteVideo = new RemoteVideo({
+    onChange: (userId, purpose, el) => this.onRemoteVideo?.(userId, purpose, el),
+  });
   private muted = false;
   private deafened = false;
   /** Camera and screen share are independent now — both can be active
@@ -53,12 +58,12 @@ export class VoiceClient {
    * distinguishable stream ids for every remote peer. */
   private cameraStream: MediaStream | null = null;
   private screenStream: MediaStream | null = null;
-  /** Set while `pc.connectionState` is "disconnected"/"failed" and
-   * we're waiting out `RECONNECT_GRACE_MS` to see if it recovers on its
-   * own before actually hanging up — see `handleConnectionStateChange`. */
-  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-  /** Set from the first offer until the connection first comes up. */
-  private connectTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly connection = new ConnectionWatch({
+    isCurrent: (pc) => this.pc === pc,
+    onReconnecting: (reconnecting) => this.onReconnecting?.(reconnecting),
+    onError: (message) => this.onError?.(message),
+    leave: () => this.leave(),
+  });
 
   onStateChange?: (connected: boolean, channelId: string | null) => void;
   onError?: (message: string) => void;
@@ -97,6 +102,9 @@ export class VoiceClient {
    * speaking detection) — lets the UI ring their avatar the way
    * `onSpeakingChange` already does for your own. */
   onRemoteSpeakingChange?: (userId: string, speaking: boolean) => void;
+  /** Fires when your mic stops (or starts) reaching the others in the
+   * call — see `MicProblem`. The others are told too (gateway op 13). */
+  onMicProblemChange?: (problem: MicProblem | null) => void;
 
   constructor(gateway: GatewayClient) {
     this.gateway = gateway;
@@ -120,7 +128,7 @@ export class VoiceClient {
       if (document.visibilityState !== "visible") return;
       if (!this.channelId || !this.pc) return;
       if (this.pc.connectionState === "disconnected" || this.pc.connectionState === "failed") {
-        this.clearReconnectTimer();
+        this.connection.clearReconnectTimer();
         void this.join(this.channelId);
       }
     });
@@ -136,6 +144,61 @@ export class VoiceClient {
 
   get isDeafened(): boolean {
     return this.deafened;
+  }
+
+  get currentMicProblem(): MicProblem | null {
+    return this.micStatus.current;
+  }
+
+  /** Tells the others in the call again (someone new joined). */
+  reannounceMicProblem(): void {
+    this.micStatus.reannounce();
+  }
+
+  private watchMicTrack(stream: MediaStream): void {
+    this.micStatus.watchTrack(stream, () => this.localStream === stream);
+  }
+
+  /** Asks for the microphone again mid-call (the "Try again" on the
+   * warning), and plugs it in without rejoining. Must run from a tap,
+   * so the browser may prompt and may let a paused graph start. */
+  async retryMic(): Promise<boolean> {
+    this.mic.resume();
+    if (!this.channelId) return false;
+    if (this.micStatus.onlyPaused) return true;
+    let stream: MediaStream;
+    try {
+      const prefs = loadAudioPrefs();
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: inputConstraints(prefs.inputDeviceId, prefs.noiseFilter),
+      });
+    } catch {
+      return false;
+    }
+    await this.replaceMic(stream);
+    return true;
+  }
+
+  /** Puts `newStream` in place of the current mic (if any) in a live call. */
+  private async replaceMic(newStream: MediaStream): Promise<void> {
+    const newTrack = newStream.getAudioTracks()[0];
+    if (!newTrack || !this.pc) {
+      newStream.getTracks().forEach((t) => t.stop());
+      return;
+    }
+    newTrack.enabled = !this.muted;
+    if (!this.mic.rewire(newStream)) {
+      // No AudioContext (buildInputGraph's fallback) — the sender
+      // holds the raw device track directly, so swap it there instead.
+      const sender = this.pc.getSenders().find((s) => s.track?.kind === "audio");
+      await sender?.replaceTrack(newTrack);
+    }
+    this.localStream?.getAudioTracks().forEach((track) => track.stop());
+    this.localStream = newStream;
+    this.watchMicTrack(newStream);
+    this.mic.stopSpeakingDetection();
+    this.mic.startSpeakingDetection(newStream);
+    this.micStatus.setTrackProblem(null);
   }
 
   get hasLocalCamera(): boolean {
@@ -157,12 +220,25 @@ export class VoiceClient {
     this.leave(false, false);
     this.channelId = channelId;
 
+    const hasAudioGraph = Boolean(
+      window.AudioContext ?? (window as unknown as { webkitAudioContext?: unknown }).webkitAudioContext,
+    );
     try {
       const prefs = loadAudioPrefs();
       this.localStream = await navigator.mediaDevices.getUserMedia({
         audio: inputConstraints(prefs.inputDeviceId, prefs.noiseFilter),
       });
+      this.micStatus.noteTrackProblem(null);
     } catch {
+      // Join anyway, listening only: the warning (and everyone else's
+      // view of you) says why nobody can hear you, and "Try again"
+      // plugs a mic in mid-call. Only a browser with no Web Audio at all
+      // has no empty track to send, and still has to give up.
+      this.localStream = null;
+      this.micStatus.noteTrackProblem("blocked");
+    }
+    if (!this.localStream && !hasAudioGraph) {
+      this.micStatus.noteTrackProblem(null);
       this.channelId = null;
       // The suppressed leave above means the UI wasn't told we
       // dropped out of the old channel yet — if this rejoin was one
@@ -174,6 +250,7 @@ export class VoiceClient {
     }
 
     this.mic.buildInputGraph(this.localStream);
+    if (this.localStream) this.watchMicTrack(this.localStream);
 
     const iceServers = await getIceServers();
     const pc = new RTCPeerConnection({ iceServers });
@@ -189,15 +266,15 @@ export class VoiceClient {
     // on the *raw* track: a disabled/muted MediaStreamTrack feeding a
     // `MediaStreamAudioSourceNode` produces silence, so mute keeps
     // working straight through the gain graph.
-    for (const track of this.localStream.getAudioTracks()) {
+    for (const track of this.localStream?.getAudioTracks() ?? []) {
       track.enabled = !this.muted;
     }
     const sendStream = this.mic.processedStream ?? this.localStream;
-    for (const track of sendStream.getAudioTracks()) {
+    for (const track of sendStream?.getAudioTracks() ?? []) {
       track.contentHint = "speech";
       addSendTransceiver(pc, track, {
         direction: "sendonly",
-        streams: [sendStream],
+        streams: sendStream ? [sendStream] : [],
         sendEncodings: [VOICE_ENCODING],
       });
     }
@@ -215,16 +292,19 @@ export class VoiceClient {
     pc.addEventListener("track", (event) => this.attachRemoteTrack(event));
     pc.addEventListener("connectionstatechange", () => {
       console.log(`[voice] connectionState -> ${pc.connectionState}`);
-      this.handleConnectionStateChange(pc);
+      this.connection.stateChanged(pc);
     });
     pc.addEventListener("iceconnectionstatechange", () => {
       console.log(`[voice] iceConnectionState -> ${pc.iceConnectionState}`);
     });
 
     await signaling.firstOffer();
-    this.watchForFirstConnection(pc);
+    this.connection.watchFirstConnection(pc);
     this.onStateChange?.(true, channelId);
     this.mic.startSpeakingDetection(this.localStream);
+    // A fresh offer told everyone you joined; tell them about the mic
+    // too, and show it locally.
+    this.micStatus.announceAfresh();
   }
 
   /** Turns your camera on/off. Independent of screen share — both can
@@ -326,8 +406,8 @@ export class VoiceClient {
    * leave sound an instant before the join sound) every time a
    * camera/screen toggle or channel switch rebuilds the connection. */
   leave(clearVideo = true, notifyLeave = true): void {
-    this.clearReconnectTimer();
-    this.clearConnectTimer();
+    this.connection.clearReconnectTimer();
+    this.connection.clearConnectTimer();
     const wasChannel = this.channelId;
     if (wasChannel && notifyLeave) {
       this.gateway.sendVoiceState(null);
@@ -355,13 +435,10 @@ export class VoiceClient {
     }
 
     this.remoteAudio.clear();
-    for (const key of this.remoteVideoEls.keys()) {
-      const [userId, purpose] = splitVideoKey(key);
-      this.onRemoteVideo?.(userId, purpose, null);
-    }
-    this.remoteVideoEls.clear();
+    this.remoteVideo.clear();
 
     this.channelId = null;
+    this.micStatus.setTrackProblem(null);
     if (wasChannel && notifyLeave) {
       this.onStateChange?.(false, wasChannel);
     }
@@ -431,7 +508,7 @@ export class VoiceClient {
    * if one is active; a no-op otherwise (the new device just gets
    * picked up on the next `join`). */
   async switchInputDevice(deviceId: string | null): Promise<void> {
-    if (!this.pc || !this.localStream) return;
+    if (!this.pc) return;
     let newStream: MediaStream;
     try {
       newStream = await navigator.mediaDevices.getUserMedia({
@@ -441,53 +518,7 @@ export class VoiceClient {
       this.onError?.("Couldn't switch to that microphone.");
       return;
     }
-    const newTrack = newStream.getAudioTracks()[0];
-    if (!newTrack) return;
-    newTrack.enabled = !this.muted;
-
-    if (!this.mic.rewire(newStream)) {
-      // No AudioContext (buildInputGraph's fallback) — the sender
-      // holds the raw device track directly, so swap it there instead.
-      const sender = this.pc.getSenders().find((s) => s.track?.kind === "audio");
-      await sender?.replaceTrack(newTrack);
-    }
-
-    this.localStream.getAudioTracks().forEach((track) => track.stop());
-    this.localStream = newStream;
-    this.mic.stopSpeakingDetection();
-    this.mic.startSpeakingDetection(this.localStream);
-  }
-
-  /** A lagged network (packet loss, a brief wifi drop, a NAT rebind)
-   * routinely pushes `connectionState` through "disconnected" or even
-   * "failed" for a few seconds before recovering on its own — the
-   * ICE agent keeps retrying in the background the whole time. Tearing
-   * the call down the instant either state is seen (the old behavior)
-   * turned an ordinary lag spike into a dropped call. Instead, give it
-   * `RECONNECT_GRACE_MS` (matching the server's own tolerance) to
-   * recover before actually leaving. `pc` is the specific connection
-   * this listener was attached to, not `this.pc` — by the time the
-   * timeout fires, a rejoin may have already replaced it, in which
-   * case there's nothing left to give up on. */
-  /** A connection that never comes up is reported and ended, instead of
-   * leaving a dead call on screen. */
-  private watchForFirstConnection(pc: RTCPeerConnection): void {
-    this.clearConnectTimer();
-    if (pc.connectionState === "connected") return;
-    this.connectTimer = setTimeout(() => {
-      this.connectTimer = null;
-      if (this.pc !== pc || pc.connectionState === "connected") return;
-      console.log(`[voice] never connected (${pc.connectionState}, ice ${pc.iceConnectionState})`);
-      this.onError?.(CONNECT_FAILED_MESSAGE);
-      this.leave();
-    }, CONNECT_TIMEOUT_MS);
-  }
-
-  private clearConnectTimer(): void {
-    if (this.connectTimer !== null) {
-      clearTimeout(this.connectTimer);
-      this.connectTimer = null;
-    }
+    await this.replaceMic(newStream);
   }
 
   /** True while the call is up or still being set up; false once it has
@@ -496,40 +527,6 @@ export class VoiceClient {
   get isConnectionHealthy(): boolean {
     const state = this.pc?.connectionState;
     return state !== undefined && state !== "failed" && state !== "closed" && state !== "disconnected";
-  }
-
-  private handleConnectionStateChange(pc: RTCPeerConnection): void {
-    if (pc.connectionState === "connected") {
-      this.clearConnectTimer();
-      this.clearReconnectTimer();
-      return;
-    }
-    if (pc.connectionState === "closed") {
-      this.clearReconnectTimer();
-      this.leave();
-      return;
-    }
-    if (
-      (pc.connectionState === "disconnected" || pc.connectionState === "failed") &&
-      this.reconnectTimer === null
-    ) {
-      this.onReconnecting?.(true);
-      this.reconnectTimer = setTimeout(() => {
-        this.reconnectTimer = null;
-        const stillDown =
-          this.pc === pc && (pc.connectionState === "failed" || pc.connectionState === "disconnected");
-        this.onReconnecting?.(false);
-        if (stillDown) this.leave();
-      }, RECONNECT_GRACE_MS);
-    }
-  }
-
-  private clearReconnectTimer(): void {
-    if (this.reconnectTimer !== null) {
-      clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = null;
-      this.onReconnecting?.(false);
-    }
   }
 
   private async handleServerUpdate(data: VoiceServerUpdate): Promise<void> {
@@ -556,36 +553,7 @@ export class VoiceClient {
     }
 
     if (event.track.kind === "video") {
-      const purpose: "camera" | "screen" = taggedPurpose === "screen" ? "screen" : "camera";
-      const key = videoKey(userId, purpose);
-      let el = this.remoteVideoEls.get(key);
-      if (!el) {
-        el = document.createElement("video");
-        el.autoplay = true;
-        el.playsInline = true;
-        // This sender's audio plays via its own <audio> element above
-        // (a separate stream, per the id scheme this method's comment
-        // describes) — muting the video element avoids doubled-up
-        // sound if the browser ever groups them together anyway.
-        el.muted = true;
-        // Belt-and-suspenders alongside the properties above — see the
-        // matching comment in chat.ts's onLocalVideo for why some
-        // WebKit/mobile Safari versions want the HTML attributes too,
-        // not just these DOM properties, for muted autoplay of a
-        // programmatically-built video element to reliably start.
-        el.setAttribute("autoplay", "");
-        el.setAttribute("playsinline", "");
-        el.setAttribute("muted", "");
-        this.remoteVideoEls.set(key, el);
-        this.onRemoteVideo?.(userId, purpose, el);
-      }
-      el.srcObject = stream;
-      event.track.addEventListener("ended", () => {
-        if (this.remoteVideoEls.get(key) === el) {
-          this.remoteVideoEls.delete(key);
-          this.onRemoteVideo?.(userId, purpose, null);
-        }
-      });
+      this.remoteVideo.attach(userId, taggedPurpose === "screen" ? "screen" : "camera", stream, event.track);
     }
   }
 }

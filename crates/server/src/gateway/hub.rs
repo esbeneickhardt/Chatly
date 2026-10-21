@@ -30,6 +30,15 @@ pub enum DispatchEvent {
         user_id: Id,
         connected: bool,
     },
+    /// Someone in a voice channel can't be heard because of their own
+    /// microphone (blocked, gone, sending silence), or can be again.
+    /// Reported by that person's client (gateway op 13); a fresh
+    /// `VoiceStateUpdate` for them resets it on everyone else's side.
+    VoiceMicProblem {
+        channel_id: Id,
+        user_id: Id,
+        problem: bool,
+    },
     /// Someone sent *you* a friend request — published to the
     /// recipient's own personal room (see `GatewayHub::publish`'s
     /// doc comment on reusing user ids as rooms).
@@ -86,6 +95,7 @@ impl DispatchEvent {
             DispatchEvent::MessageUpdate(_) => "MESSAGE_UPDATE",
             DispatchEvent::MessageDelete { .. } => "MESSAGE_DELETE",
             DispatchEvent::VoiceStateUpdate { .. } => "VOICE_STATE_UPDATE",
+            DispatchEvent::VoiceMicProblem { .. } => "VOICE_MIC_PROBLEM",
             DispatchEvent::FriendRequestCreate(_) => "FRIEND_REQUEST_CREATE",
             DispatchEvent::DmChannelCreate(_) => "DM_CHANNEL_CREATE",
             DispatchEvent::DmParticipantLeave { .. } => "DM_PARTICIPANT_LEAVE",
@@ -112,6 +122,7 @@ impl DispatchEvent {
             Message(&'a Message),
             MessageDelete { channel_id: Id, message_id: Id },
             VoiceState { channel_id: Id, user_id: Id, connected: bool },
+            VoiceMic { channel_id: Id, user_id: Id, problem: bool },
             FriendRequest(&'a FriendRequest),
             DmChannel(&'a DmChannelSummary),
             DmParticipantLeave { channel_id: Id, user_id: Id },
@@ -132,6 +143,9 @@ impl DispatchEvent {
                     user_id: *user_id,
                     connected: *connected,
                 }
+            }
+            DispatchEvent::VoiceMicProblem { channel_id, user_id, problem } => {
+                Payload::VoiceMic { channel_id: *channel_id, user_id: *user_id, problem: *problem }
             }
             DispatchEvent::FriendRequestCreate(request) => Payload::FriendRequest(request),
             DispatchEvent::DmChannelCreate(dm) => Payload::DmChannel(dm),

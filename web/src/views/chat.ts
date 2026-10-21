@@ -11,6 +11,8 @@ import { createPanes } from "./chat/panes";
 import { createComposerDom } from "./chat/composer-dom";
 import { createStageDom } from "./chat/stage-dom";
 import { createHeader } from "./chat/header";
+import { createMicBanner } from "./chat/mic-problems";
+import { offerNotifications } from "./chat/notify-prompt";
 import { createSidebar } from "./chat/sidebar";
 
 import { createChatState } from "./chat/state";
@@ -319,6 +321,7 @@ export async function renderChat(
       autoToggleChatForMobileCall(false);
     }
   };
+  voiceClient.onMicProblemChange = createMicBanner(voiceClient);
   voiceClient.onError = (message) => {
     dmCall.pendingOutgoingCall = null;
     alert(message);
@@ -560,4 +563,5 @@ export async function renderChat(
 
   gateway.connect();
   syncPushSubscription();
+  window.setTimeout(offerNotifications, 1500);
 }

@@ -16,7 +16,17 @@ import {
 export interface LocalMicOptions {
   isMuted: () => boolean;
   onSpeakingChange: (speaking: boolean) => void;
+  /** "silent": the mic delivers pure digital silence (Android's
+   * microphone privacy switch does this instead of failing), "paused":
+   * the browser hasn't let the audio graph run yet, so nothing is sent. */
+  onHealthChange: (health: MicHealth) => void;
 }
+
+export type MicHealth = "ok" | "silent" | "paused";
+
+/** Real microphones never deliver exact zeros for this long, even in a
+ * quiet room through noise suppression. */
+const SILENT_AFTER_MS = 4000;
 
 export class LocalMic {
   constructor(private readonly opts: LocalMicOptions) {}
@@ -28,6 +38,10 @@ export class LocalMic {
   private speakingTimer: ReturnType<typeof setInterval> | null = null;
 
   private speaking = false;
+
+  private health: MicHealth = "ok";
+
+  private silentSince: number | null = null;
 
   /** Mic-gain pipeline: raw device audio -> `inputGainNode` ->
    * `processedStream`, which is what actually gets sent over the peer
@@ -66,6 +80,8 @@ export class LocalMic {
     source.connect(this.analyser);
 
     const data = new Uint8Array(this.analyser.frequencyBinCount);
+    const wave = new Float32Array(this.analyser.fftSize);
+    this.silentSince = null;
     this.speakingTimer = setInterval(() => {
       if (!this.analyser) return;
       this.analyser.getByteFrequencyData(data);
@@ -75,8 +91,60 @@ export class LocalMic {
         this.speaking = isSpeaking;
         this.opts.onSpeakingChange(isSpeaking);
       }
+      this.checkHealth(wave);
     }, SPEAKING_POLL_MS);
   }
+
+  /** Watches for a mic that's "working" but sends nothing anyone can
+   * hear (see `MicHealth`). */
+  private checkHealth(wave: Float32Array<ArrayBuffer>): void {
+    const contexts = [this.audioCtx, this.inputAudioCtx].filter((c): c is AudioContext => c !== null);
+    if (contexts.some((c) => c.state !== "running")) {
+      this.resume();
+      this.setHealth("paused");
+      return;
+    }
+    let peak = 0;
+    this.analyser?.getFloatTimeDomainData(wave);
+    for (let i = 0; i < wave.length; i++) peak = Math.max(peak, Math.abs(wave[i]));
+    if (this.opts.isMuted() || peak > 0) {
+      this.silentSince = null;
+      this.setHealth("ok");
+      return;
+    }
+    this.silentSince ??= performance.now();
+    if (performance.now() - this.silentSince > SILENT_AFTER_MS) this.setHealth("silent");
+  }
+
+  private setHealth(health: MicHealth): void {
+    if (health === this.health) return;
+    this.health = health;
+    this.opts.onHealthChange(health);
+  }
+
+  /** Lets a paused audio graph run. Browsers only allow that from a tap
+   * or key press, so it's also retried on the next one. */
+  resume(): void {
+    const contexts = [this.audioCtx, this.inputAudioCtx].filter((c): c is AudioContext => c !== null);
+    for (const ctx of contexts) {
+      if (ctx.state === "suspended") void ctx.resume().catch(() => {});
+    }
+    if (!this.resumeOnGesture) {
+      const onGesture = (): void => {
+        document.removeEventListener("pointerdown", onGesture, true);
+        document.removeEventListener("keydown", onGesture, true);
+        this.resumeOnGesture = null;
+        for (const ctx of [this.audioCtx, this.inputAudioCtx]) {
+          if (ctx?.state === "suspended") void ctx.resume().catch(() => {});
+        }
+      };
+      this.resumeOnGesture = onGesture;
+      document.addEventListener("pointerdown", onGesture, true);
+      document.addEventListener("keydown", onGesture, true);
+    }
+  }
+
+  private resumeOnGesture: (() => void) | null = null;
 
   stopSpeakingDetection(): void {
     if (this.speakingTimer !== null) {
@@ -90,6 +158,7 @@ export class LocalMic {
       this.speaking = false;
       this.opts.onSpeakingChange(false);
     }
+    this.setHealth("ok");
   }
 
   /** Builds the mic-gain pipeline that feeds the outgoing audio
@@ -101,7 +170,7 @@ export class LocalMic {
    * re-requesting `getUserMedia` or renegotiating. Falls back to
    * sending `stream` unmodified if `AudioContext` isn't available at
    * all (very old browsers). */
-  buildInputGraph(stream: MediaStream): void {
+  buildInputGraph(stream: MediaStream | null): void {
     const AudioCtor =
       window.AudioContext ??
       (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
@@ -109,8 +178,10 @@ export class LocalMic {
       this.processedStream = stream;
       return;
     }
+    // With no mic at all (blocked), the graph still runs, so the call
+    // has an (empty) outgoing track a mic can be plugged into later.
     this.inputAudioCtx = this.createInputContext(AudioCtor, stream);
-    this.inputSourceNode = this.inputAudioCtx.createMediaStreamSource(stream);
+    this.inputSourceNode = stream ? this.inputAudioCtx.createMediaStreamSource(stream) : null;
     this.inputGainNode = this.inputAudioCtx.createGain();
     this.inputGainNode.gain.value = loadAudioPrefs().inputVolume;
     // Input volume goes past 100% for a quiet (phone) mic; the limiter
@@ -131,11 +202,11 @@ export class LocalMic {
    * that rate. Some browsers (Firefox) refuse a mic source whose rate
    * differs from the context's, so that falls back to the default rate
    * and the noise filter simply stays out of the graph. */
-  private createInputContext(AudioCtor: typeof AudioContext, stream: MediaStream): AudioContext {
+  private createInputContext(AudioCtor: typeof AudioContext, stream: MediaStream | null): AudioContext {
     if (noiseFilterSupported()) {
       try {
         const ctx = new AudioCtor({ sampleRate: NOISE_FILTER_SAMPLE_RATE });
-        ctx.createMediaStreamSource(stream).disconnect();
+        if (stream) ctx.createMediaStreamSource(stream).disconnect();
         return ctx;
       } catch {
         /* fall through to the default rate */
@@ -203,6 +274,7 @@ export class LocalMic {
   rewire(newStream: MediaStream): boolean {
     if (!this.inputAudioCtx || !this.inputGainNode) return false;
     this.inputSourceNode?.disconnect();
+    this.resume();
     this.inputSourceNode = this.inputAudioCtx.createMediaStreamSource(newStream);
     this.wireInput();
     return true;

@@ -10,6 +10,7 @@ import { icon } from "../icons";
 import { playIncomingCallSound, playOutgoingCallSound } from "../notification-sound";
 import { notify } from "../notifications";
 import { renderAvatarEl } from "../ui";
+import { markMicProblem } from "./chat/mic-problems";
 import { type VoiceClient } from "../voice";
 
 /** What this slice needs from the chat view. */
@@ -254,6 +255,7 @@ export function createDmCall(ctx: DmCallContext) {
         const ring = document.createElement("div");
         ring.className = "dm-call-avatar";
         ring.appendChild(renderAvatarEl(entry.name, entry.avatarFileId));
+        markMicProblem(wrap, entry.id, ring);
         const label = document.createElement("span");
         label.className = "dm-call-participant-name";
         label.textContent = entry.id === user.id ? "You" : entry.name;

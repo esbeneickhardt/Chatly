@@ -3,6 +3,7 @@
 import { type Channel, type DmSummary, type Guild, type User } from "../../api";
 import { icon } from "../../icons";
 import { renderAvatarEl } from "../../ui";
+import { markMicProblem } from "./mic-problems";
 import { MAX_REMOTE_VOLUME } from "../../voice";
 import { renderInviteToVoiceModal, renderManageChannelModal } from "../servers";
 import { type ComposerDomParts } from "./composer-dom";
@@ -56,6 +57,7 @@ export function createChannels(ctx: createChannelsContext) {
       name.className = "voice-participant-name";
       name.textContent = member.display_name;
       row.appendChild(name);
+      markMicProblem(row, uid);
       if (uid !== user.id) {
         const volumeSlider = document.createElement("input");
         volumeSlider.type = "range";
