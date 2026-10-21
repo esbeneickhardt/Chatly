@@ -196,3 +196,5 @@ own admins (see above), whose authority stops at their server.
 | GET | `/admin/guilds/{id}/members` | global admin | A server's members |
 | POST | `/admin/guilds/{id}/owner` | global admin | Reassign a server to another of its members |
 | GET | `/admin/audit-log` | global admin | What the global admin has done to the deployment (deleting accounts or servers, resetting passwords, reassigning owners), newest first |
+| GET | `/admin/app-icon` | global admin | The app icon everyone gets (home screen, browser tab, notifications) and the choices: `{icon, choices}` |
+| POST | `/admin/app-icon` | global admin | Switch the app icon: `{icon}`, one of `choices` |

@@ -3,11 +3,15 @@
 //! `cargo run` iterate without a rebuild of the server.
 
 use axum::body::Body;
-use axum::extract::Path as AxPath;
+use std::sync::Arc;
+
+use axum::extract::{Path as AxPath, State};
 use axum::http::{header, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::Router;
+
+use crate::app_icon::AppIcon;
 
 #[cfg(not(debug_assertions))]
 mod embedded {
@@ -36,16 +40,36 @@ fn cache_control(path: &str) -> HeaderValue {
     }
 }
 
-pub fn router() -> Router {
-    Router::new().route("/", get(index)).route("/{*path}", get(asset))
+pub fn router(app_icon: Arc<AppIcon>) -> Router {
+    Router::new().route("/", get(index)).route("/{*path}", get(asset)).with_state(app_icon)
 }
 
 async fn index() -> Response {
     serve("index.html")
 }
 
-async fn asset(AxPath(path): AxPath<String>) -> Response {
-    serve(&path)
+/// The app-icon addresses answer with the admin's chosen icon (see
+/// `app_icon`), and the manifest names that choice; the rest is the
+/// client as built.
+async fn asset(State(app_icon): State<Arc<AppIcon>>, AxPath(path): AxPath<String>) -> Response {
+    if let Some(file) = app_icon.file_for(&path) {
+        return serve(&file);
+    }
+    let response = serve(&path);
+    if path == "manifest.webmanifest" && response.status().is_success() {
+        return tag_manifest(response, &app_icon).await;
+    }
+    response
+}
+
+async fn tag_manifest(response: Response, app_icon: &AppIcon) -> Response {
+    let (mut parts, body) = response.into_parts();
+    let Ok(bytes) = axum::body::to_bytes(body, 1 << 20).await else {
+        return (StatusCode::INTERNAL_SERVER_ERROR, "manifest unreadable").into_response();
+    };
+    let tagged = app_icon.tag_manifest(&String::from_utf8_lossy(&bytes));
+    parts.headers.remove(header::CONTENT_LENGTH);
+    Response::from_parts(parts, Body::from(tagged))
 }
 
 #[cfg(not(debug_assertions))]

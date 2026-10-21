@@ -283,3 +283,49 @@ pub async fn set_guild_owner(
             .ok_or_else(|| AppError::internal("server vanished while updating it"))?,
     ))
 }
+
+#[derive(serde::Serialize)]
+pub struct AppIconChoice {
+    icon: &'static str,
+    choices: &'static [&'static str],
+}
+
+/// Which app icon everyone gets (see `crate::app_icon`), and the choices.
+pub async fn get_app_icon(
+    State(state): State<SharedState>,
+    current: CurrentUser,
+) -> AppResult<Json<AppIconChoice>> {
+    require_instance_owner(&current)?;
+    Ok(Json(AppIconChoice { icon: state.app_icon.current(), choices: &crate::app_icon::CHOICES }))
+}
+
+#[derive(serde::Deserialize)]
+pub struct SetAppIcon {
+    icon: String,
+}
+
+pub async fn set_app_icon(
+    State(state): State<SharedState>,
+    current: CurrentUser,
+    Json(body): Json<SetAppIcon>,
+) -> AppResult<Json<AppIconChoice>> {
+    require_instance_owner(&current)?;
+    let icon = match state.app_icon.set(&body.icon) {
+        None => return Err(AppError::bad_request("unknown_icon", "that isn't one of the icons")),
+        Some(Err(e)) => {
+            return Err(AppError::internal(format!("could not save the app icon: {e}")))
+        }
+        Some(Ok(icon)) => icon,
+    };
+    audit::record(
+        &state,
+        None,
+        &current.user,
+        "global.app_icon",
+        None,
+        None,
+        Some(icon.to_string()),
+    )
+    .await;
+    Ok(Json(AppIconChoice { icon, choices: &crate::app_icon::CHOICES }))
+}

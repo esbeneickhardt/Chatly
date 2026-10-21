@@ -73,6 +73,7 @@ impl TestApp {
             voice,
             stats: sysstats::spawn(),
             push,
+            app_icon: Arc::new(crate::app_icon::AppIcon::load(dir.path())),
         });
         let router = Router::new()
             .nest("/api", api::router(config.max_upload_bytes).layer(from_fn(csrf::require_header)))

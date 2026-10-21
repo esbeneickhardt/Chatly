@@ -45,6 +45,52 @@
     }
   ],
   "paths": {
+    "/admin/app-icon": {
+      "get": {
+        "summary": "The app icon everyone gets (home screen, browser tab, notifications) and the choices: `{icon, choices}`",
+        "description": "Who can call it: global admin.",
+        "tags": [
+          "Global admin"
+        ],
+        "responses": {
+          "2XX": {
+            "description": "Success"
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Switch the app icon: `{icon}`, one of `choices`",
+        "description": "Who can call it: global admin.",
+        "tags": [
+          "Global admin"
+        ],
+        "responses": {
+          "2XX": {
+            "description": "Success"
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/admin/audit-log": {
       "get": {
         "summary": "What the global admin has done to the deployment (deleting accounts or servers, resetting passwords, reassigning owners), newest first",

@@ -1,4 +1,5 @@
 mod api;
+mod app_icon;
 mod auth;
 mod cli;
 mod client_ip;
@@ -92,6 +93,8 @@ async fn main() -> anyhow::Result<()> {
         storage.clone(),
     );
 
+    let app_icon = Arc::new(app_icon::AppIcon::load(&config.data_dir));
+
     let shared_state = Arc::new(AppState {
         storage,
         snowflake: SnowflakeGenerator::new(0),
@@ -103,6 +106,7 @@ async fn main() -> anyhow::Result<()> {
         voice,
         stats: sysstats::spawn(),
         push,
+        app_icon: app_icon.clone(),
     });
 
     let stateful = Router::new()
@@ -113,7 +117,7 @@ async fn main() -> anyhow::Result<()> {
     let app = Router::new()
         .merge(healthz::router())
         .merge(stateful)
-        .fallback_service(static_files::router())
+        .fallback_service(static_files::router(app_icon))
         .layer(from_fn(security_headers::apply))
         .layer(from_fn(request_log::apply));
 

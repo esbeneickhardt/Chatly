@@ -120,6 +120,7 @@ pub fn router(max_upload_bytes: u64) -> Router<SharedState> {
         .route("/admin/users/{id}/delete", post(admin::delete_user))
         .route("/admin/users/{id}/password", post(admin::reset_user_password))
         .route("/admin/audit-log", get(audit::global_log))
+        .route("/admin/app-icon", get(admin::get_app_icon).post(admin::set_app_icon))
         .route("/guilds/{id}/audit-log", get(audit::guild_log))
         .route("/admin/guilds", get(admin::list_guilds))
         .route("/admin/guilds/{id}", delete(admin::delete_guild))

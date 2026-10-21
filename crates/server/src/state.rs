@@ -49,6 +49,8 @@ pub struct AppState {
     pub voice: VoiceHub,
     pub stats: Arc<StatsMonitor>,
     pub push: PushService,
+    /// The admin's app icon choice, shared with the static file server.
+    pub app_icon: Arc<crate::app_icon::AppIcon>,
 }
 
 pub type SharedState = Arc<AppState>;

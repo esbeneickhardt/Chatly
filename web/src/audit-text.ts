@@ -57,6 +57,8 @@ export function describeAudit(entry: AuditEntry): string {
       return `${who} added the bot ${target}`;
     case "bot.revoke":
       return `${who} revoked the bot ${target}'s token`;
+    case "global.app_icon":
+      return `${who} changed the app icon`;
     case "global.user_delete":
       return `${who} deleted the account ${target}`;
     case "global.user_password":
