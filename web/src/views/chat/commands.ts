@@ -231,6 +231,14 @@ export function createCommands(ctx: CommandsContext) {
         keywords: "audio input output volume devices",
         run: () => openSettings("devices"),
       },
+      {
+        id: "action:notifications",
+        label: "Notification settings",
+        group: "action",
+        iconName: "bell",
+        keywords: "push sounds alerts notify",
+        run: () => openSettings("notifications"),
+      },
     );
     if (user.is_owner) {
       actions.push({

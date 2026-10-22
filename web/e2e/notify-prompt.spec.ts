@@ -38,6 +38,6 @@ test("Turn on switches notifications on", async ({ browser }) => {
   await prompt.getByRole("button", { name: "Turn on" }).click();
   await expect(prompt).toHaveCount(0);
   await page.locator("[title='Settings']").click();
-  await page.locator(".settings-nav-item", { hasText: "Devices" }).click();
+  await page.locator(".settings-nav-item", { hasText: "Notifications" }).click();
   await expect(page.locator(".switch-row", { hasText: "Push notifications" }).locator("input")).toBeChecked();
 });

@@ -6,11 +6,13 @@ import { type VoiceClient } from "../../voice";
 import { renderGlobalAdminSection } from "../global-admin";
 import { renderAccountSection, renderDangerSection, renderLogoutSection } from "./account";
 import { renderDevicesSection } from "./devices";
+import { renderNotificationsSection } from "./notifications";
 import { renderProfileSection } from "./profile";
 import { renderSecuritySection } from "./security";
 import { openSettingsShell, type ShellTab } from "./shell";
 
-export type SettingsTab = "profile" | "devices" | "security" | "account" | "admin" | "logout" | "danger";
+export type SettingsTab =
+  "profile" | "devices" | "notifications" | "security" | "account" | "admin" | "logout" | "danger";
 
 export function renderSettings(opts: {
   user: User;
@@ -50,6 +52,12 @@ export function renderSettings(opts: {
       label: "Devices",
       iconName: "headphones",
       render: (c) => renderDevicesSection(c, opts.voiceClient),
+    },
+    {
+      id: "notifications",
+      label: "Notifications",
+      iconName: "bell",
+      render: (c) => renderNotificationsSection(c),
     },
     {
       id: "security",

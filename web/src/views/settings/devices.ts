@@ -1,13 +1,7 @@
-// Settings → Devices: microphone, speaker, voice filters, connection
-// test and notifications.
+// Settings → Devices: microphone, speaker, voice filters and connection
+// test.
 
 import { loadAudioPrefs, saveAudioPrefs } from "../../audio-prefs";
-import {
-  needsHomeScreen,
-  notificationsEnabled,
-  notificationsSupported,
-  setNotificationsEnabled,
-} from "../../notifications";
 import { type VoiceClient } from "../../voice";
 import { MAX_VOLUME } from "../../voice/util";
 import { noiseFilterSupported } from "../../voice/voice-filters";
@@ -71,30 +65,6 @@ export function renderDevicesSection(container: HTMLElement, voiceClient: VoiceC
       }
     },
   });
-
-  const soundRow = switchRow("Message sounds", prefs.notificationSoundsEnabled, (next) => {
-    prefs.notificationSoundsEnabled = next;
-    saveAudioPrefs(prefs);
-  });
-
-  // Notifications for calls, DMs and mentions, pushed even when closed (see notifications.ts).
-  const pushRow = switchRow("Push notifications", notificationsEnabled(), async (next) => {
-    const outcome = await setNotificationsEnabled(next);
-    pushRow.input.checked = outcome === "on";
-    pushHint.hidden = outcome !== "denied";
-    if (outcome === "denied") pushHint.textContent = "Blocked in this browser's site settings.";
-  });
-  const pushHint = document.createElement("p");
-  pushHint.className = "settings-row-hint";
-  pushHint.hidden = true;
-  pushHint.setAttribute("aria-live", "polite");
-  if (!notificationsSupported()) {
-    pushRow.input.disabled = true;
-    pushHint.textContent = needsHomeScreen()
-      ? "Add Chatly to the Home Screen first."
-      : "Not supported in this browser.";
-    pushHint.hidden = false;
-  }
 
   // Live mic level meter: its own short-lived getUserMedia capture and
   // AnalyserNode, entirely separate from `voiceClient` (which only has
@@ -232,7 +202,6 @@ export function renderDevicesSection(container: HTMLElement, voiceClient: VoiceC
     group("Microphone", grantRow.el, micRow, inputVolume.el, noiseFilterRow, studioVoiceRow),
     group("Speaker", speakerRow, outputVolume.el, testSpeakerRow.el),
     renderConnectionTest(),
-    group("Notifications", soundRow.el, pushRow.el, pushHint),
   );
   void populateDevices().then((hasLabels) => {
     if (hasLabels) void startMicMeter(prefs.inputDeviceId);

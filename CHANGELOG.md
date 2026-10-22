@@ -93,6 +93,9 @@ finer-grained, per-request history of the UI work lives in
   (Playwright), and CI covering format, lint, tests, and a scanned image.
 
 ### Changed
+- **Notifications have their own Settings page** (bell icon, and *Notification
+  settings* in the command palette) instead of sitting at the bottom of
+  Devices: message sounds and push notifications.
 - **Phones open on Direct Messages** with the drawer out, so who is online and
   every conversation are one tap away (they used to open the first server's
   first channel, three taps from a DM). Computers still open the first server;
