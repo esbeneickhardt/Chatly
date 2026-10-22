@@ -16,6 +16,7 @@ import { offerNotifications } from "./chat/notify-prompt";
 import { createSidebar } from "./chat/sidebar";
 
 import { createChatState } from "./chat/state";
+import { PHONE_QUERY } from "./settings/widgets";
 import { isRenderableDm } from "./chat/helpers";
 import { createGuildRail } from "./chat/guild-rail";
 import { createMessages } from "./chat/messages";
@@ -509,6 +510,11 @@ export async function renderChat(
     // Started by tapping a notification while no Chatly window was open.
     await (launchTarget.guildId ? enterDefaultView() : switchToHome());
     await directMessages.openFromNotification(launchTarget);
+  } else if (window.matchMedia(PHONE_QUERY).matches) {
+    // A phone starts on the conversation list (with who is online), drawer
+    // open: one tap from any conversation instead of three from a server.
+    await switchToHome();
+    shell.classList.add("mobile-nav-open");
   } else {
     await enterDefaultView();
   }

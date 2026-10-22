@@ -93,6 +93,10 @@ finer-grained, per-request history of the UI work lives in
   (Playwright), and CI covering format, lint, tests, and a scanned image.
 
 ### Changed
+- **Phones open on Direct Messages** with the drawer out, so who is online and
+  every conversation are one tap away (they used to open the first server's
+  first channel, three taps from a DM). Computers still open the first server;
+  invite links and notifications still go straight to their target.
 - **Roles** as rows (who has each and its position); tapping one opens People
   (search and switches, saved as you go), Permissions (switches and position)
   or Delete. Creating a role asks only for a name, then picks its people.
