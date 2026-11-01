@@ -7,9 +7,6 @@ describes.** Never mark something done without having rebuilt,
 redeployed to `http://127.0.0.1:8090`, and verified it there (or via
 `curl`/jsdom against that instance) — "should work" is not "done."
 
-Test accounts on the local instance: `admin`/`admin1234`,
-`alice`/`alicepass1`, `bob`/`bobpass123`.
-
 ## Open
 
 Numbered by when they were raised. Do not renumber when items are

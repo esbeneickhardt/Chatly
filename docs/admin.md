@@ -7,12 +7,15 @@ git clone <your fork/clone of this repo>
 cd chatly
 mkdir -p data
 docker run --rm -v "$(pwd)/data:/data" busybox chown 65532:65532 /data
-printf 'TURN_SECRET=%s\n' "$(openssl rand -hex 32)" > docker/.env
+cp docker/.env.example docker/.env   # then fill in PUBLIC_URL, VOICE_PUBLIC_IP, TURN_REALM
+sed -i "s/^TURN_SECRET=.*/TURN_SECRET=$(openssl rand -hex 32)/" docker/.env
 docker compose -f docker/docker-compose.yml up -d --build
 ```
 
-`docker/.env` holds the secret shared by the app and the `coturn` relay
-(see below). It is git-ignored; keep it out of the repository.
+`docker/.env` holds this deployment's address (`PUBLIC_URL`,
+`VOICE_PUBLIC_IP`, `TURN_REALM`) and the secret shared by the app and the
+`coturn` relay (see below); the compose file refuses to start without
+them. It is git-ignored; keep it out of the repository.
 
 The `chown` step matters: the container runs as a fixed non-root user
 (UID/GID `65532`, the `nonroot` user baked into the distroless base
@@ -23,10 +26,9 @@ it over. You only need to do this once, before the first `up`.
 
 The compose file publishes the container's port 8080 on host port
 **8090** (`docker/docker-compose.yml`'s `ports: ["8090:8080"]`) — pick a
-different host port there if 8090 is also taken on your machine; the
-`PUBLIC_URL` environment variable in the same file must match whatever
-you choose, since it's used for invite links, the TOTP issuer name, and
-the gateway's Origin check.
+different host port there if 8090 is also taken on your machine;
+`PUBLIC_URL` in `docker/.env` must match whatever you choose, since it's
+used for invite links, the TOTP issuer name, and the gateway's Origin check.
 
 Once it's running, open `http://localhost:8090` and register — the
 first account created on an empty instance automatically becomes the

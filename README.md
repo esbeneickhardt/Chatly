@@ -1,12 +1,47 @@
-# Chatly
+<p align="center">
+  <img src="web/public/icon.svg" width="96" alt="Chatly" />
+</p>
 
-A Discord-style text + voice server for a self-hosted community of
-roughly 50–100 people. One binary, one container, one data volume. No
-third-party identity providers, no telemetry, no external service
-required at runtime.
+<h1 align="center">Chatly</h1>
 
-See [PLAN.md](PLAN.md) for the full roadmap and current phase status,
-and [docs/admin.md](docs/admin.md) for the self-hosting guide.
+<p align="center">
+  Self-hosted chat for a community of 50–100 people: servers, channels, DMs, voice, video and screen sharing.<br/>
+  One Rust binary, one SQLite file, no third parties.
+</p>
+
+<p align="center">
+  <a href="https://github.com/esbeneickhardt/Chatly/actions/workflows/ci.yml"><img src="https://github.com/esbeneickhardt/Chatly/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+</p>
+
+<p align="center">
+  <a href="#quick-start-docker">Quick start</a> · <a href="docs/admin.md">Self-hosting guide</a> · <a href="docs/architecture.md">Architecture</a> · <a href="docs/api.md">API</a> · <a href="CHANGELOG.md">Changelog</a>
+</p>
+
+<div align="center">
+<table>
+<tr>
+  <td align="center"><img src="docs/screenshots/channel.png" width="400" alt="A text channel with a code block, LaTeX, a reply and reactions"/><br/><sub>Channels: Markdown, code, LaTeX, replies, reactions</sub></td>
+  <td align="center"><img src="docs/screenshots/call.png" width="400" alt="A three-person video call in a group DM, with the chat beside it"/><br/><sub>Group calls with video, next to the chat</sub></td>
+</tr>
+<tr>
+  <td align="center"><img src="docs/screenshots/search.png" width="400" alt="Message search across a channel, server or DMs"/><br/><sub>Full-text search</sub></td>
+  <td align="center"><img src="docs/screenshots/roles.png" width="400" alt="Server settings with roles"/><br/><sub>Roles and per-channel permissions</sub></td>
+</tr>
+</table>
+<table>
+<tr>
+  <td align="center"><img src="docs/screenshots/phone-channel.png" width="200" alt="A channel on a phone"/></td>
+  <td align="center"><img src="docs/screenshots/phone-dms.png" width="200" alt="Direct messages on a phone"/></td>
+</tr>
+<tr><td colspan="2" align="center"><sub>Installable on phones, with push notifications</sub></td></tr>
+</table>
+</div>
+
+<sub>Screenshots are from a demo instance with made-up people.</sub>
+
+A Discord-style text + voice server for a self-hosted community. One
+binary, one container, one data volume. No third-party identity
+providers, no telemetry, no external service required at runtime.
 
 ## What it does
 
@@ -64,6 +99,7 @@ Web checks live in `web/` (`npm run typecheck`, `lint`, `format:check`,
 ```sh
 mkdir -p data
 docker run --rm -v "$(pwd)/data:/data" busybox chown 65532:65532 /data
+cp docker/.env.example docker/.env   # set PUBLIC_URL, VOICE_PUBLIC_IP, TURN_REALM, TURN_SECRET
 just up     # docker compose -f docker/docker-compose.yml up -d --build
 ```
 

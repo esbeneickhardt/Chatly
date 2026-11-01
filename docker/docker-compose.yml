@@ -29,9 +29,9 @@ services:
       DATA_DIR: /data
       LISTEN_ADDR: 0.0.0.0:8080
       LOG_LEVEL: info
-      PUBLIC_URL: https://chatly.ebbemonster.dk
+      PUBLIC_URL: ${PUBLIC_URL:?set PUBLIC_URL in docker/.env}
       VOICE_PORT: 50000
-      VOICE_PUBLIC_IP: 87.61.87.21
+      VOICE_PUBLIC_IP: ${VOICE_PUBLIC_IP:?set VOICE_PUBLIC_IP in docker/.env}
       # The host's nginx reverse proxy now sits in front of every real
       # visitor (see docs/admin.md's TRUSTED_PROXY table). Without this,
       # every request's peer address is this container's docker bridge
@@ -88,8 +88,8 @@ services:
     pids_limit: 128
     command:
       - "-n"
-      - "--realm=chatly.ebbemonster.dk"
-      - "--external-ip=87.61.87.21"
+      - "--realm=${TURN_REALM:?set TURN_REALM in docker/.env}"
+      - "--external-ip=${VOICE_PUBLIC_IP:?set VOICE_PUBLIC_IP in docker/.env}"
       - "--listening-port=3478"
       - "--min-port=49160"
       - "--max-port=49260"
