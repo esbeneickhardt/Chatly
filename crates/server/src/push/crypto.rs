@@ -142,7 +142,7 @@ fn encrypt_with(
     plaintext.push(0x02);
     let ciphertext = Aes128Gcm::new_from_slice(&cek)
         .expect("16-byte key")
-        .encrypt(Nonce::from_slice(&nonce), plaintext.as_slice())
+        .encrypt(&Nonce::from(nonce), plaintext.as_slice())
         .expect("encryption cannot fail here");
 
     let mut body = Vec::with_capacity(16 + 4 + 1 + 65 + ciphertext.len());

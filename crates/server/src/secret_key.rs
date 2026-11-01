@@ -7,7 +7,7 @@
 
 use std::path::Path;
 
-use aes_gcm::aead::{Aead, KeyInit, OsRng};
+use aes_gcm::aead::{Aead, KeyInit};
 use aes_gcm::{Aes256Gcm, Key, Nonce};
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine;
@@ -51,11 +51,11 @@ impl SecretKey {
 
     /// Encrypts `plaintext`, returning `nonce || ciphertext`.
     pub fn encrypt(&self, plaintext: &[u8]) -> Vec<u8> {
-        let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&self.0));
+        let cipher = Aes256Gcm::new(&Key::<Aes256Gcm>::from(self.0));
         let mut nonce_bytes = [0u8; NONCE_LEN];
-        OsRng.fill_bytes(&mut nonce_bytes);
-        let nonce = Nonce::from_slice(&nonce_bytes);
-        let ciphertext = cipher.encrypt(nonce, plaintext).expect("encryption cannot fail here");
+        rand::rngs::OsRng.fill_bytes(&mut nonce_bytes);
+        let nonce = Nonce::from(nonce_bytes);
+        let ciphertext = cipher.encrypt(&nonce, plaintext).expect("encryption cannot fail here");
 
         let mut out = Vec::with_capacity(NONCE_LEN + ciphertext.len());
         out.extend_from_slice(&nonce_bytes);
@@ -69,9 +69,10 @@ impl SecretKey {
             anyhow::bail!("encrypted blob too short");
         }
         let (nonce_bytes, ciphertext) = blob.split_at(NONCE_LEN);
-        let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&self.0));
+        let cipher = Aes256Gcm::new(&Key::<Aes256Gcm>::from(self.0));
+        let nonce = Nonce::try_from(nonce_bytes).expect("split_at gives NONCE_LEN bytes");
         cipher
-            .decrypt(Nonce::from_slice(nonce_bytes), ciphertext)
+            .decrypt(&nonce, ciphertext)
             .map_err(|_| anyhow::anyhow!("decryption failed (wrong key or corrupted data)"))
     }
 }
