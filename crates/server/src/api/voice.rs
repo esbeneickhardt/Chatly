@@ -18,7 +18,7 @@
 use axum::extract::State;
 use axum::Json;
 use base64::Engine;
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use serde::Serialize;
 use sha1::Sha1;
 
