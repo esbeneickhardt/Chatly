@@ -11,7 +11,7 @@ COPY web/src ./src
 RUN npm run build
 
 # ---- Stage 2: rust binary (musl, statically linked) ----
-FROM rust:1.98-alpine AS server
+FROM rust:1.99-alpine AS server
 RUN apk add --no-cache musl-dev build-base
 WORKDIR /app
 COPY Cargo.toml Cargo.lock ./
