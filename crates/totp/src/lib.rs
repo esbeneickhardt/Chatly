@@ -4,7 +4,7 @@
 
 pub mod base32;
 
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use rand::RngCore;
 use sha1::Sha1;
 
