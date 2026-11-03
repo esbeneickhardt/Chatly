@@ -12,7 +12,8 @@ use base64::Engine;
 use hkdf::Hkdf;
 use p256::ecdsa::signature::Signer;
 use p256::ecdsa::{Signature, SigningKey};
-use p256::elliptic_curve::sec1::ToEncodedPoint;
+use p256::elliptic_curve::sec1::ToSec1Point;
+use p256::elliptic_curve::Generate;
 use p256::{PublicKey, SecretKey};
 use rand::RngCore;
 use sha2_10::Sha256;
@@ -43,14 +44,14 @@ impl VapidKey {
                 })?
             }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                let secret = SecretKey::random(&mut rand::rngs::OsRng);
+                let secret = SecretKey::generate();
                 std::fs::write(&path, B64URL.encode(secret.to_bytes()))?;
                 tracing::info!(path = %path.display(), "generated a Web Push (VAPID) key");
                 secret
             }
             Err(e) => return Err(e.into()),
         };
-        let public_b64 = B64URL.encode(secret.public_key().to_encoded_point(false).as_bytes());
+        let public_b64 = B64URL.encode(secret.public_key().to_sec1_point(false).as_bytes());
         Ok(VapidKey { signing: SigningKey::from(secret), public_b64 })
     }
 
@@ -105,7 +106,7 @@ pub fn parse_keys(p256dh: &str, auth: &str) -> Result<(PublicKey, [u8; 16]), Key
 pub fn encrypt(ua_public: &PublicKey, auth: &[u8; 16], payload: &[u8]) -> Vec<u8> {
     let mut salt = [0u8; 16];
     rand::rngs::OsRng.fill_bytes(&mut salt);
-    let ephemeral = SecretKey::random(&mut rand::rngs::OsRng);
+    let ephemeral = SecretKey::generate();
     encrypt_with(ua_public, auth, payload, &ephemeral, salt)
 }
 
@@ -116,8 +117,8 @@ fn encrypt_with(
     ephemeral: &SecretKey,
     salt: [u8; 16],
 ) -> Vec<u8> {
-    let ua_point = ua_public.to_encoded_point(false);
-    let as_point = ephemeral.public_key().to_encoded_point(false);
+    let ua_point = ua_public.to_sec1_point(false);
+    let as_point = ephemeral.public_key().to_sec1_point(false);
     let shared = p256::ecdh::diffie_hellman(ephemeral.to_nonzero_scalar(), ua_public.as_affine());
 
     // IKM = HKDF(auth, ecdh, "WebPush: info\0" || ua_public || as_public)
