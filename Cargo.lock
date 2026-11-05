@@ -637,8 +637,8 @@ dependencies = [
  "chacha20poly1305",
  "der",
  "ecdsa",
- "hkdf 0.13.0",
- "hmac 0.13.0",
+ "hkdf",
+ "hmac",
  "log",
  "nom 8.0.0",
  "once_cell",
@@ -711,7 +711,7 @@ dependencies = [
  "digest 0.11.3",
  "ff",
  "group",
- "hkdf 0.13.0",
+ "hkdf",
  "hybrid-array",
  "pem-rfc7468",
  "pkcs8",
@@ -994,29 +994,11 @@ dependencies = [
 
 [[package]]
 name = "hkdf"
-version = "0.12.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b5f8eb2ad728638ea2c7d47a21db23b7b58a72ed6a38256b8a1849f15fbbdf7"
-dependencies = [
- "hmac 0.12.1",
-]
-
-[[package]]
-name = "hkdf"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4aaa26c720c68b866f2c96ef5c1264b3e6f473fe5d4ce61cd44bbe913e553018"
 dependencies = [
- "hmac 0.13.0",
-]
-
-[[package]]
-name = "hmac"
-version = "0.12.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c49c37c09c17a53d937dfbb742eb3a961d65a994e6bcdcf37e7399d0cc8ab5e"
-dependencies = [
- "digest 0.10.7",
+ "hmac",
 ]
 
 [[package]]
@@ -2079,7 +2061,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4a459cddafb3fe76b31fd8f1108007566c40301feb64dc7b54656eb7388172b"
 dependencies = [
  "crypto-bigint",
- "hmac 0.13.0",
+ "hmac",
 ]
 
 [[package]]
@@ -2458,8 +2440,8 @@ dependencies = [
  "axum",
  "base64 0.23.1",
  "futures-util",
- "hkdf 0.12.4",
- "hmac 0.13.0",
+ "hkdf",
+ "hmac",
  "infer",
  "mime_guess",
  "p256",
@@ -2687,7 +2669,7 @@ dependencies = [
  "aes-gcm",
  "ctr",
  "dimpl",
- "hmac 0.13.0",
+ "hmac",
  "p256",
  "sha1 0.11.0",
  "sha2 0.11.0",
@@ -2995,7 +2977,7 @@ checksum = "7d56353a2a665ad0f41a421187180aab746c8c325620617ad883a99a1cbe66d2"
 name = "totp"
 version = "0.1.0"
 dependencies = [
- "hmac 0.13.0",
+ "hmac",
  "rand 0.8.8",
  "sha1 0.11.0",
  "thiserror 1.0.69",
