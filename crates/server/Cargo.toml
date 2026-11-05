@@ -40,7 +40,7 @@ tokio-stream = { version = "0.1.19", features = ["sync"] }
 futures-util = "0.3.34"
 tokio-util = { version = "0.7.19", features = ["io"] }
 str0m = { version = "0.25.0", default-features = false, features = ["rust-crypto"] }
-sysinfo = "0.39.6"
+sysinfo = "0.40.1"
 socket2 = "0.6"
 p256 = { version = "0.14", features = ["ecdh", "ecdsa", "getrandom"] }
 hkdf = "0.12"
